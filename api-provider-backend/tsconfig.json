@@ -1,0 +1,47 @@
+{
+  "compilerOptions": {
+    // File Locations
+    "outDir": "./dist",
+    "rootDir": "./",
+
+    // Module + Target (ESM setup for Node.js 20+)
+    "module": "nodenext",
+    "target": "esnext",
+    "moduleResolution": "nodenext",
+    "resolveJsonModule": true,
+
+    // Type definitions
+    "types": ["node"],
+    "typeRoots": ["./node_modules/@types", "./types"],
+
+    // Output options
+    "sourceMap": true,
+    "declaration": true,
+    "declarationMap": true,
+
+    // Strictness
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+
+    // Recommended in 2025 for clean builds
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "noUncheckedSideEffectImports": true,
+    "moduleDetection": "force",
+    "skipLibCheck": true,
+
+    // Nice-to-have safety checks (uncomment if you want more strictness)
+    // "noImplicitReturns": true,
+    // "noImplicitOverride": true,
+    // "noUnusedLocals": true,
+    // "noUnusedParameters": true,
+    // "noFallthroughCasesInSwitch": true,
+    // "noPropertyAccessFromIndexSignature": true,
+
+    // JSX if you plan to use React somewhere
+    "jsx": "react-jsx"
+  },
+  "include": ["./server.ts", "./types/**/*"],
+  "exclude": ["node_modules", "dist"]
+}
