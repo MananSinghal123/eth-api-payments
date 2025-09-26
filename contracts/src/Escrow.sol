@@ -34,6 +34,10 @@ contract Escrow is ReentrancyGuard, Pausable, Ownable {
     mapping(address => uint256) public apiProviderBalances;
     mapping(address => bool) public registeredApiProviders;
 
+    // Frontend management - NEW
+    mapping(address => mapping(address => string)) public userFrontendForApiProvider; // user => apiProvider => frontendUrl
+    mapping(address => mapping(address => bool)) public hasUserSetFrontend; // user => apiProvider => bool
+
     // Rate management
     mapping(address => mapping(string => uint256)) public apiProviderRates; // provider => endpoint => rate
     mapping(address => uint256) public defaultApiProviderRates; // provider => default rate
@@ -42,7 +46,7 @@ contract Escrow is ReentrancyGuard, Pausable, Ownable {
     mapping(bytes32 => bool) public processedSettlements;
 
     // Events
-    event Deposit(address indexed depositor, address indexed apiProvider, uint256 amount);
+    event Deposit(address indexed depositor, address indexed apiProvider, uint256 amount, string frontendUrl);
     event DepositWithdraw(address indexed depositor, address indexed apiProvider, uint256 amount);
     event ApiProviderRegistered(address indexed apiProvider, string uri);
     event ApiProviderDeregistered(address indexed apiProvider);
@@ -52,6 +56,7 @@ contract Escrow is ReentrancyGuard, Pausable, Ownable {
     event RateUpdated(address indexed apiProvider, string endpoint, uint256 newRate);
     event DefaultRateUpdated(address indexed apiProvider, uint256 newRate);
     event ZkVerifierUpdated(address indexed oldVerifier, address indexed newVerifier);
+    event FrontendSet(address indexed user, address indexed apiProvider, string frontendUrl); // NEW
 
     constructor(address _pyusdAddress, address _zkVerifier) Ownable(msg.sender) {
         pyusdToken = IERC20(_pyusdAddress);
@@ -109,19 +114,40 @@ contract Escrow is ReentrancyGuard, Pausable, Ownable {
     //       API User Functions   /////
     ///////////////////////////////////
 
-    function deposit(address apiProvider, uint256 amount)
+    function deposit(address apiProvider, uint256 amount, string calldata frontendUrl)
         external
         nonReentrant
         whenNotPaused
         validAmount(amount)
         onlyRegisteredApiProvider(apiProvider)
     {
+        require(bytes(frontendUrl).length > 0, "Frontend URL cannot be empty");
+
         pyusdToken.safeTransferFrom(msg.sender, address(this), amount);
 
         depositsUserToApiProvider[msg.sender][apiProvider] += amount;
         isDepositorToApiProvider[msg.sender][apiProvider] = true;
 
-        emit Deposit(msg.sender, apiProvider, amount);
+        // Set frontend for this user-apiProvider pair
+        userFrontendForApiProvider[msg.sender][apiProvider] = frontendUrl;
+        hasUserSetFrontend[msg.sender][apiProvider] = true;
+
+        emit Deposit(msg.sender, apiProvider, amount, frontendUrl);
+        emit FrontendSet(msg.sender, apiProvider, frontendUrl);
+    }
+
+    function setFrontendUrl(address apiProvider, string calldata frontendUrl)
+        external
+        whenNotPaused
+        onlyRegisteredApiProvider(apiProvider)
+        onlyDepositorToApiProvider(msg.sender, apiProvider)
+    {
+        require(bytes(frontendUrl).length > 0, "Frontend URL cannot be empty");
+
+        userFrontendForApiProvider[msg.sender][apiProvider] = frontendUrl;
+        hasUserSetFrontend[msg.sender][apiProvider] = true;
+
+        emit FrontendSet(msg.sender, apiProvider, frontendUrl);
     }
 
     function depositWithdraw(uint256 amount, address apiProvider)
@@ -136,6 +162,9 @@ contract Escrow is ReentrancyGuard, Pausable, Ownable {
         depositsUserToApiProvider[msg.sender][apiProvider] -= amount;
         if (depositsUserToApiProvider[msg.sender][apiProvider] == 0) {
             isDepositorToApiProvider[msg.sender][apiProvider] = false;
+            // Optionally clear frontend mapping when no deposits left
+            delete userFrontendForApiProvider[msg.sender][apiProvider];
+            hasUserSetFrontend[msg.sender][apiProvider] = false;
         }
 
         pyusdToken.safeTransfer(msg.sender, amount);
@@ -176,6 +205,7 @@ contract Escrow is ReentrancyGuard, Pausable, Ownable {
             require(registeredApiProviders[apiProvider], "API provider not registered");
             require(isDepositorToApiProvider[depositor][apiProvider], "No deposits found");
             require(depositsUserToApiProvider[depositor][apiProvider] >= amount, "Insufficient deposited balance");
+            require(hasUserSetFrontend[depositor][apiProvider], "No frontend set for this user-provider pair");
 
             // Transfer from depositor's balance to API provider's balance
             depositsUserToApiProvider[depositor][apiProvider] -= amount;
@@ -290,6 +320,14 @@ contract Escrow is ReentrancyGuard, Pausable, Ownable {
 
     function getApiProviderUri(address apiProvider) external view returns (string memory) {
         return apiProviderToUri[apiProvider];
+    }
+
+    function getUserFrontend(address user, address apiProvider) external view returns (string memory) {
+        return userFrontendForApiProvider[user][apiProvider];
+    }
+
+    function hasUserSetFrontendUrl(address user, address apiProvider) external view returns (bool) {
+        return hasUserSetFrontend[user][apiProvider];
     }
 
     function getEndpointRate(address apiProvider, string memory endpoint) public view returns (uint256) {
