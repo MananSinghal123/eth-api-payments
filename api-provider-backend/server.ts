@@ -35,15 +35,9 @@ interface BatchData {
 }
 
 interface ProofInputs {
-    response_data: number[];
-    status_code: string;
-    nonce: string;
-    expected_commitment: string;
-    expected_status: string;
     individual_usages: number[];
     num_calls: number;
     total_claimed_usage: number;
-    // Add index signature for compatibility with InputMap
     [key: string]: string | number | string[] | number[] | boolean | boolean[];
 }
 
@@ -515,15 +509,17 @@ async function generateBatchProof({ batchData, batchId }: GenerateBatchProofPara
         console.log("Batch Commitment:", expectedCommitment);
         
         const inputs: ProofInputs = {
-            response_data: batchData.response_data,
-            status_code: batchData.status_code,
-            nonce: batchData.nonce,
-            expected_commitment: expectedCommitment,
-            expected_status: batchData.expected_status,
+            // response_data: batchData.response_data,
+            // status_code: batchData.status_code,
+            // nonce: batchData.nonce,
+            // expected_commitment: expectedCommitment,
+            // expected_status: batchData.expected_status,
             individual_usages: batchData.individual_usages,
             num_calls: batchData.num_calls,
             total_claimed_usage: batchData.total_claimed_usage
         };
+
+        console.log("Proof Inputs:", inputs);
         
         const proofStartTime = Date.now();
         
@@ -533,6 +529,7 @@ async function generateBatchProof({ batchData, batchId }: GenerateBatchProofPara
         }
         
         const { witness } = await noir.execute(inputs);
+        console.log("Witness:", witness);
         const proofData = await backend.generateProof(witness, { keccak: true });
         
         console.log(`✅ Batch proof generated for ${batchId} in ${Date.now() - proofStartTime}ms`);

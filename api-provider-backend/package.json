@@ -11,7 +11,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@aztec/bb.js": "^2.0.3",
+     "@aztec/bb.js": "^1.2.1",
     "@noir-lang/noir_js": "^1.0.0-beta.11",
     "axios": "^1.12.2",
     "circomlib": "^2.0.5",
