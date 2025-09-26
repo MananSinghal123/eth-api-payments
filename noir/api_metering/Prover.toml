@@ -1,0 +1,9 @@
+expected_commitment = ""
+expected_status = "1"
+individual_usages=[100, 150, 200, 0]
+nonce = 0x1234
+num_calls = "4"
+response_data = [1, 2, 3, 4]
+status_code = "1"
+total_claimed_usage = "450"
+
