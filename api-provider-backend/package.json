@@ -1,0 +1,34 @@
+{
+  "name": "api-provider-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "dist/server.js",
+  "license": "MIT",
+  "scripts": {
+    "dev": "tsx watch server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@aztec/bb.js": "^2.0.3",
+    "@noir-lang/noir_js": "^1.0.0-beta.11",
+    "axios": "^1.12.2",
+    "circomlib": "^2.0.5",
+    "circomlibjs": "^0.1.7",
+    "cors": "^2.8.5",
+    "crypto": "^1.0.1",
+    "dotenv": "^17.2.2",
+    "express": "^5.1.0",
+    "ioredis": "^5.8.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
+    "@types/node": "^24.5.2",
+    "@upstash/redis": "^1.35.4",
+    "nodemon": "^3.1.10",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.2"
+  }
+}
