@@ -31,3 +31,5 @@ logs/
 *.tgz
 *.bak
 *.tmp
+
+package-lock.json

@@ -502,12 +502,12 @@ async function generateBatchProof({ batchData, batchId }: GenerateBatchProofPara
         
         // Prepare hash inputs for Poseidon (adjust order based on your circuit)
         const hashInputs = [
-            batchData.status_code,
-            ...batchData.response_data.map(d => d.toString()),
-            ...batchData.individual_usages.map(u => u.toString()),
-            batchData.num_calls.toString(),
-            batchData.total_claimed_usage.toString(),
-            batchData.nonce
+            batchData.status_code.toString(),
+            batchData.response_data[0]?.toString()||"0",
+            batchData.response_data[1]?.toString()||"0",
+            batchData.response_data[2]?.toString()||"0",
+            batchData.response_data[3]?.toString()||"0",
+            batchData.nonce.toString()
         ];
         
         // Compute Poseidon hash

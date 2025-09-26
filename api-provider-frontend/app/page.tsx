@@ -45,10 +45,10 @@ export default function WeatherApp() {
     try {
       // Simulate API call - replace with actual endpoint
       const response = await fetch(
-        `${baseUrl}/api/weather/${city}?walletAddress=${address}`,
+        `${baseUrl}/api/weather/${city}`,
         {
           headers: {
-            "x-wallet-address": address,
+            "wallet-address": address,
           },
         }
       );
