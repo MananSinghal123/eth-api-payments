@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { useAccount, useConnect, useDisconnect, useChainId, useSwitchChain } from 'wagmi'
 import { sepolia, arbitrumSepolia, optimismSepolia } from 'wagmi/chains'
 
@@ -17,6 +18,7 @@ function ConnectButton({ className = '' }: ConnectButtonProps) {
   const { disconnect } = useDisconnect()
   const chainId = useChainId()
   const { switchChain, isPending: isSwitching } = useSwitchChain()
+  const [isDisconnectOpen, setIsDisconnectOpen] = useState(false)
 
   // Supported testnet chains
   const supportedChains = [sepolia, arbitrumSepolia, optimismSepolia]
@@ -26,21 +28,33 @@ function ConnectButton({ className = '' }: ConnectButtonProps) {
   // 1. If connected and on a supported chain
   if (isConnected && !isWrongChain) {
     return (
-      <div className={`flex flex-col gap-2 p-3 border border-blue-600 rounded-md ${className}`}>
+      <div className={`flex items-center gap-3 p-2 border border-blue-600 rounded-md ${className}`}>
         <p className="m-0 font-bold">
-          ✅ Connected: {shortenAddress(address!)}
+          ✅ {shortenAddress(address!)}
         </p>
         <p className="m-0 text-sm">
-          Chain: <strong>{currentChain?.name || 'Unknown'}</strong>
+          <strong>{currentChain?.name || 'Unknown'}</strong>
         </p>
         <button
-          onClick={() => disconnect()}
-          disabled={isConnecting}
-          className="px-5 py-2 text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          aria-label="Disconnect wallet"
+          onClick={() => setIsDisconnectOpen(!isDisconnectOpen)}
+          className="px-3 py-1 text-white bg-gray-600 rounded-md hover:bg-gray-700"
+          aria-label="Toggle disconnect option"
         >
-          {isConnecting ? 'Disconnecting...' : 'Disconnect'}
+          ⋮
         </button>
+        {isDisconnectOpen && (
+          <button
+            onClick={() => {
+              disconnect()
+              setIsDisconnectOpen(false)
+            }}
+            disabled={isConnecting}
+            className="px-3 py-1 text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            aria-label="Disconnect wallet"
+          >
+            {isConnecting ? 'Disconnecting...' : 'Disconnect'}
+          </button>
+        )}
       </div>
     )
   }
@@ -48,16 +62,15 @@ function ConnectButton({ className = '' }: ConnectButtonProps) {
   // 2. If connected but on an unsupported chain
   if (isConnected && isWrongChain) {
     return (
-      <div className={`flex flex-col gap-2 p-3 border border-red-600 rounded-md text-red-600 ${className}`}>
+      <div className={`flex items-center gap-3 p-2 border border-red-600 rounded-md text-red-600 ${className}`}>
         <p className="m-0 font-bold">⚠️ Unsupported Network!</p>
-        <p className="m-0 text-sm">Please switch to a supported testnet.</p>
-        <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-2">
           {supportedChains.map(chain => (
             <button
               key={chain.id}
               onClick={() => switchChain({ chainId: chain.id })}
               disabled={isSwitching}
-              className="px-5 py-2 text-white bg-orange-500 rounded-md hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-1 text-white bg-orange-500 rounded-md hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
               aria-label={`Switch to ${chain.name} network`}
             >
               {isSwitching ? 'Switching...' : `Switch to ${chain.name}`}
@@ -65,7 +78,7 @@ function ConnectButton({ className = '' }: ConnectButtonProps) {
           ))}
           <button
             onClick={() => disconnect()}
-            className="px-5 py-2 text-white bg-red-600 rounded-md hover:bg-red-700 text-sm"
+            className="px-3 py-1 text-white bg-red-600 rounded-md hover:bg-red-700 text-sm"
             aria-label="Disconnect wallet"
           >
             Disconnect
