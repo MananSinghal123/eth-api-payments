@@ -2,9 +2,18 @@
 # yarn lockfile v1
 
 
+"@api-mertering-zk/zk-proof-utils@1.5.0":
+  version "1.5.0"
+  resolved "https://registry.yarnpkg.com/@api-mertering-zk/zk-proof-utils/-/zk-proof-utils-1.5.0.tgz#791caeec874ffbd287c8976b1bfcae3bde8e7888"
+  integrity sha512-X13ty1vMY1SsqdHCGrh23qVg6+xV9wssNQhM5rk0fCS4ekajJ10myyL13lN33w0RQR91LCyZNU0h5kky2gLjHg==
+  dependencies:
+    "@aztec/bb.js" "^1.2.1"
+    "@noir-lang/noir_js" "^1.0.0-beta.11"
+    axios "^1.6.0"
+
 "@aztec/bb.js@^1.2.1":
   version "1.2.1"
-  resolved "https://registry.yarnpkg.com/@aztec/bb.js/-/bb.js-1.2.1.tgz#2d60f8289c577942c1ae88f0a58e3f49dc3b93f7"
+  resolved "https://registry.npmjs.org/@aztec/bb.js/-/bb.js-1.2.1.tgz"
   integrity sha512-q1AuP74adCUdqhDM3nXpqX8rVz5iPSPb0t/bnqIUGp97Ta/YTJP/zDYv7Z3c3Eiqq/bBpCIAfK9D5z96LKMfTQ==
   dependencies:
     comlink "^4.4.1"
@@ -636,7 +645,7 @@
 
 "@upstash/redis@^1.35.4":
   version "1.35.4"
-  resolved "https://registry.npmjs.org/@upstash/redis/-/redis-1.35.4.tgz"
+  resolved "https://registry.yarnpkg.com/@upstash/redis/-/redis-1.35.4.tgz#28a8a5492b32a9a546c709502ffbd57de06c87ef"
   integrity sha512-WE1ZnhFyBiIjTDW13GbO6JjkiMVVjw5VsvS8ENmvvJsze/caMQ5paxVD44+U68IUVmkXcbsLSoE+VIYsHtbQEw==
   dependencies:
     uncrypto "^0.1.3"
@@ -672,7 +681,7 @@ atomic-sleep@^1.0.0:
   resolved "https://registry.npmjs.org/atomic-sleep/-/atomic-sleep-1.0.0.tgz"
   integrity sha512-kNOjDqAh7px0XWNI+4QbzoiR/nTkHAWNud2uvnJquD1/x5a7EQZMJT0AczqK0Qn67oY/TTQ1LbUKajZpp3I9tQ==
 
-axios@^1.12.2:
+axios@^1.12.2, axios@^1.6.0:
   version "1.12.2"
   resolved "https://registry.npmjs.org/axios/-/axios-1.12.2.tgz"
   integrity sha512-vMJzPewAlRyOgxV2dU0Cuz2O8zzzx9VYtbJOaBgXFeLc4IV/Eg50n4LowmehOOR61S8ZMpc2K5Sa7g6A4jfkUw==

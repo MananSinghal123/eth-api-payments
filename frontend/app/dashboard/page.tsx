@@ -1,34 +1,106 @@
-"use client"
+"use client";"use client""use client"
 
-import type React from "react"
-import { useState } from "react"
-import { useAccount, useChainId } from "wagmi"
-import { 
-  Terminal, 
-  Bot, 
-  TrendingUp, 
-  Shield, 
-  Zap, 
-  Network,
-  Cpu,
-  Eye,
-  Activity,
-  ChevronRight
-} from "lucide-react"
-import WalletConnector from "@/lib/walletConnector"
-import PYUSDBalanceCard from "@/components/PYUSDBalanceCard"
-import BridgeComponent from "@/components/BridgeComponent"
-import NetworkSwitcher from "@/components/NetworkSwitcher"
-import EscrowDashboard from "@/components/EscrowDashboard"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
 
-// Define the chain details
-const POLYGON_AMOY_CHAIN_ID = 80002
-const SEPOLIA_CHAIN_ID = 11155111
 
-export default function Dashboard(): React.ReactElement {
+import React from "react";
+
+import { useAccount } from "wagmi";
+
+import WalletConnector from "@/lib/walletConnector";import type React from "react"import type React from "react"
+
+
+
+export default function Dashboard() {import { useAccount } from "wagmi"import { useAccount } from "wagmi"
+
+  const { isConnected } = useAccount();
+
+import WalletConnector from "@/lib/walletConnector"import WalletConnector from "@/lib/walletConnector"
+
+  return (
+
+    <div className="min-h-screen bg-gray-100 p-4">
+
+      <div className="max-w-4xl mx-auto">
+
+        <div className="text-center mb-8">export default function Dashboard(): React.ReactElement {export default function Dashboard(): React.ReactElement {
+
+          <h1 className="text-3xl font-bold text-gray-800 mb-4">Dashboard</h1>
+
+          <p className="text-gray-600 mb-4">This dashboard is currently being simplified</p>  const { isConnected } = useAccount()  const { isConnected } = useAccount()
+
+          {!isConnected && <WalletConnector />}
+
+        </div>
+
+        
+
+        {isConnected && (  return (  return (
+
+          <div className="bg-white rounded-lg shadow-md p-8 text-center">
+
+            <p className="text-gray-600 mb-4">    <div className="min-h-screen bg-gray-100 p-4">    <div className="min-h-screen bg-gray-100 p-4">
+
+              Dashboard functionality has been moved to the main page for simplicity.
+
+            </p>      <div className="max-w-4xl mx-auto">      <div className="max-w-4xl mx-auto">
+
+            <a 
+
+              href="/"         <div className="text-center mb-8">        <div className="text-center mb-8">
+
+              className="inline-block bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md transition-colors"
+
+            >          <h1 className="text-3xl font-bold text-gray-800 mb-4">Dashboard</h1>          <h1 className="text-3xl font-bold text-gray-800 mb-4">Dashboard</h1>
+
+              Go to Main Page
+
+            </a>          <p className="text-gray-600 mb-4">This dashboard is currently being simplified</p>          <p className="text-gray-600 mb-4">This dashboard is currently being simplified</p>
+
+          </div>
+
+        )}          {!isConnected && <WalletConnector />}          {!isConnected && <WalletConnector />}
+
+      </div>
+
+    </div>        </div>        </div>
+
+  );
+
+}                
+
+        {isConnected && (        {isConnected && (
+
+          <div className="bg-white rounded-lg shadow-md p-8 text-center">          <div className="bg-white rounded-lg shadow-md p-8 text-center">
+
+            <p className="text-gray-600 mb-4">            <p className="text-gray-600 mb-4">
+
+              Dashboard functionality has been moved to the main page for simplicity.              Dashboard functionality has been moved to the main page for simplicity.
+
+            </p>            </p>
+
+            <a             <a 
+
+              href="/"               href="/" 
+
+              className="inline-block bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md transition-colors"              className="inline-block bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md transition-colors"
+
+            >            >
+
+              Go to Main Page              Go to Main Page
+
+            </a>            </a>
+
+          </div>          </div>
+
+        )}        )}
+
+      </div>      </div>
+
+    </div>    </div>
+
+  )  )
+
+}}
   const { address, isConnected } = useAccount()
   const chainId = useChainId()
   const isAmoyChain = chainId === POLYGON_AMOY_CHAIN_ID

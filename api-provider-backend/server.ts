@@ -3,11 +3,15 @@ import type { Request, Response } from 'express';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
-import axios from 'axios';
-import { buildPoseidon } from 'circomlibjs';
+
 import { Redis } from '@upstash/redis';
 import cors from 'cors';
 import * as dotenv from 'dotenv';
+import { 
+//   initializeProofSystem, 
+  generateBatchProof, 
+  notifyPaymentGateway 
+} from '@api-mertering-zk/zk-proof-utils';
 
 // Import bb.js and Noir
 import { UltraHonkBackend } from '@aztec/bb.js';
@@ -34,33 +38,36 @@ interface BatchData {
     lastUpdated: number; // Timestamp for cleanup
 }
 
-interface ProofInputs {
-    individual_usages: number[];
-    num_calls: number;
-    total_claimed_usage: number;
-    [key: string]: string | number | string[] | number[] | boolean | boolean[];
-}
+// interface ProofInputs {
+//     individual_usages: number[];
+//     num_calls: number;
+//     total_claimed_usage: number;
+//     [key: string]: string | number | string[] | number[] | boolean | boolean[];
+// }
 
-interface ProofResult {
-    proof: string;
-    publicInputs: string[];
-    inputs: ProofInputs;
-}
+// interface ProofResult {
+//     proof: string;
+//     publicInputs: string[];
+//     inputs: ProofInputs;
+// }
 
-interface PaymentData {
-    batchId: string;
-    walletAddress: string;
-    proof: string;
-    publicInputs: string[];
-    endpoint: string;
-    processingTime: number;
-    batchData: BatchData;
-}
+// interface PaymentData {
+//     batchId: string;
+//     walletAddress: string;
+//     proof: string;
+//     publicInputs: string[];
+//     endpoint: string;
+//     processingTime: number;
+//     batchData: BatchData;
+// }
 
-interface GenerateBatchProofParams {
-    batchData: BatchData;
-    batchId: string;
-}
+// interface GenerateBatchProofParams {
+//     batchData: BatchData;
+//     batchId: string;
+//     noir?: Noir | null;
+//     backend?: UltraHonkBackend | null;
+// }
+
 dotenv.config();
 // Initialize Express app
 const app = express();
@@ -95,31 +102,9 @@ let circuit: any = null;
 let noir: Noir | null = null;
 let backend: UltraHonkBackend | null = null;
 let isInitialized = false;
-let poseidonHashFn: any = null;
 
 // In-memory batch storage (in production, use Redis for persistence)
 const batchStorage = new Map<string, BatchData>();
-
-// Compute Poseidon hash using circomlibjs (same as Noir circuit)
-function computePoseidonHash(inputs: (string | number)[]): string {
-    if (!poseidonHashFn) {
-        throw new Error('Poseidon not initialized');
-    }
-    try {
-        // Convert inputs to BigInt field elements
-        const bigIntInputs = inputs.map((input: string | number) => {
-            if (typeof input === 'string' && input.startsWith('0x')) {
-                return BigInt(input);
-            }
-            return BigInt(input.toString());
-        });
-        const hash = poseidonHashFn(bigIntInputs);
-        return poseidonHashFn.F.toString(hash);
-    } catch (error: any) {
-        console.error('Failed to compute Poseidon hash:', error.message);
-        throw error;
-    }
-}
 
 // Initialize proof system
 async function initializeProofSystem(): Promise<void> {
@@ -135,7 +120,6 @@ async function initializeProofSystem(): Promise<void> {
         
         noir = new Noir(circuit);
         backend = new UltraHonkBackend(circuit.bytecode);
-        poseidonHashFn = await buildPoseidon();
         
         isInitialized = true;
         console.log('✅ Proof system ready!');
@@ -154,6 +138,7 @@ async function initializeProofSystem(): Promise<void> {
         throw error;
     }
 }
+// await initializeProofSystem(CIRCUIT_PATH,COMPILED_CIRCUIT_PATH);
 
 // Cache helper functions
 async function getCachedWeather(city: string): Promise<WeatherData | null> {
@@ -195,7 +180,7 @@ async function incrementAPIUsage(userId: string): Promise<number> {
     }
 }
 
-// Calculate token usage based on response complexity
+// Calculate token usage based on response complexity - ideally in TEE
 function calculateTokenUsage(weatherData: WeatherData): number {
     // Simple calculation based on data complexity
     const baseUsage = 20;
@@ -259,7 +244,9 @@ async function processBatch(walletAddress: string): Promise<void> {
         // Generate ZK proof for the batch
         const proofResult = await generateBatchProof({
             batchData,
-            batchId
+            batchId,
+            noir,
+            backend
         });
         
         // Send proof to payment gateway
@@ -271,7 +258,7 @@ async function processBatch(walletAddress: string): Promise<void> {
             endpoint: '/api/weather/batch',
             processingTime: 0, // Will be calculated in payment gateway
             batchData
-        });
+        }, PAYMENT_GATEWAY_URL);
         
         // Remove processed batch from storage
         batchStorage.delete(walletAddress);
@@ -385,194 +372,6 @@ app.get('/api/weather/:city', async (req: Request, res: Response) => {
     }
 });
 
-// Get current batch status for a wallet
-app.get('/api/batch-status/:walletAddress', (req: Request, res: Response) => {
-    const { walletAddress } = req.params;
-    
-    if (!walletAddress) {
-        return res.status(400).json({ error: 'Wallet address parameter is required' });
-    }
-    
-    const batchData = batchStorage.get(walletAddress);
-    
-    if (!batchData) {
-        return res.json({
-            walletAddress,
-            batchExists: false,
-            message: 'No active batch for this wallet'
-        });
-    }
-    
-    res.json({
-        walletAddress,
-        batchExists: true,
-        expected_status: batchData.expected_status,
-        nonce: batchData.nonce,
-        response_data: batchData.response_data,
-        status_code: batchData.status_code,
-        individual_usages: batchData.individual_usages,
-        num_calls: batchData.num_calls,
-        total_claimed_usage: batchData.total_claimed_usage,
-        batchReady: isBatchReady(batchData),
-        requestIds: batchData.requestIds
-    });
-});
-
-// Force process batch (for testing)
-app.post('/api/force-batch/:walletAddress', async (req: Request, res: Response) => {
-    const { walletAddress } = req.params;
-    
-    if (!walletAddress) {
-        return res.status(400).json({ error: 'Wallet address parameter is required' });
-    }
-    
-    const batchData = batchStorage.get(walletAddress);
-    
-    if (!batchData) {
-        return res.status(404).json({ error: 'No batch found for this wallet address' });
-    }
-    
-    try {
-        await processBatch(walletAddress);
-        res.json({
-            success: true,
-            message: `Batch processed for wallet ${walletAddress}`,
-            processedCalls: batchData.num_calls
-        });
-    } catch (error: any) {
-        res.status(500).json({ error: 'Failed to process batch', details: error.message });
-    }
-});
-
-// Health check endpoint
-app.get('/health', async (req: Request, res: Response) => {
-    try {
-        const redisStatus = redis ? await redis.ping() : null;
-        res.json({
-            status: 'healthy',
-            proofSystem: isInitialized,
-            redis: redisStatus === 'PONG',
-            redisEnabled: REDIS_ENABLED,
-            activeBatches: batchStorage.size,
-            timestamp: new Date().toISOString()
-        });
-    } catch (error: any) {
-        res.status(503).json({
-            status: 'unhealthy',
-            error: error.message,
-            timestamp: new Date().toISOString()
-        });
-    }
-});
-
-// API usage stats endpoint
-app.get('/api/usage/:userId', async (req: Request, res: Response) => {
-    try {
-        const { userId } = req.params;
-        const today = new Date().toISOString().split('T')[0];
-        const key = `api_usage:${userId}:${today}`;
-        
-        let usage = 0;
-        if (redis) {
-            usage = await redis.get(key) || 0;
-        }
-        
-        res.json({
-            userId,
-            date: today,
-            requests: Number(usage),
-            limit: 1000, // Example limit
-            redisEnabled: REDIS_ENABLED
-        });
-    } catch (error: any) {
-        res.status(500).json({ error: 'Failed to fetch usage stats', details: error.message });
-    }
-});
-
-// Generate ZK proof for batch
-async function generateBatchProof({ batchData, batchId }: GenerateBatchProofParams): Promise<ProofResult> {
-    try {
-        console.log(`🔄 Generating batch proof for ${batchId}...`);
-        
-        // Prepare hash inputs for Poseidon (adjust order based on your circuit)
-        const hashInputs = [
-            batchData.status_code.toString(),
-            batchData.response_data[0]?.toString()||"0",
-            batchData.response_data[1]?.toString()||"0",
-            batchData.response_data[2]?.toString()||"0",
-            batchData.response_data[3]?.toString()||"0",
-            batchData.nonce.toString()
-        ];
-        
-        // Compute Poseidon hash
-        const expectedCommitment = computePoseidonHash(hashInputs);
-        console.log("Batch Commitment:", expectedCommitment);
-        
-        const inputs: ProofInputs = {
-            // response_data: batchData.response_data,
-            // status_code: batchData.status_code,
-            // nonce: batchData.nonce,
-            // expected_commitment: expectedCommitment,
-            // expected_status: batchData.expected_status,
-            individual_usages: batchData.individual_usages,
-            num_calls: batchData.num_calls,
-            total_claimed_usage: batchData.total_claimed_usage
-        };
-
-        console.log("Proof Inputs:", inputs);
-        
-        const proofStartTime = Date.now();
-        
-        // Generate witness and proof
-        if (!noir || !backend) {
-            throw new Error('Proof system not initialized');
-        }
-        
-        const { witness } = await noir.execute(inputs);
-        console.log("Witness:", witness);
-        const proofData = await backend.generateProof(witness, { keccak: true });
-        
-        console.log(`✅ Batch proof generated for ${batchId} in ${Date.now() - proofStartTime}ms`);
-        
-        return {
-            proof: Buffer.from(proofData.proof).toString('hex'),
-            publicInputs: proofData.publicInputs,
-            inputs: inputs
-        };
-        
-    } catch (error: any) {
-        console.error(`❌ Batch proof generation failed for ${batchId}:`, error.message);
-        throw error;
-    }
-}
-
-// Send batch proof to payment gateway
-async function notifyPaymentGateway(paymentData: PaymentData): Promise<void> {
-    try {
-        console.log(`🔄 Processing batch payment for wallet ${paymentData.walletAddress}...`);
-        
-        const response = await axios.post(`${PAYMENT_GATEWAY_URL}/api/verify-and-pay-batch`, {
-            batchId: paymentData.batchId,
-            walletAddress: paymentData.walletAddress,
-            proof: paymentData.proof,
-            publicInputs: paymentData.publicInputs,
-            endpoint: paymentData.endpoint,
-            batchData: {
-                num_calls: paymentData.batchData.num_calls,
-                total_claimed_usage: paymentData.batchData.total_claimed_usage,
-                individual_usages: paymentData.batchData.individual_usages,
-                response_data: paymentData.batchData.response_data,
-                requestIds: paymentData.batchData.requestIds
-            }
-        });
-        
-        console.log(`✅ Batch payment processed: $${response.data.amountUSD} for ${paymentData.batchData.num_calls} calls`);
-        
-    } catch (error: any) {
-        console.error(`❌ Batch payment failed:`, error.response?.data || error.message);
-        // Continue operation even if payment fails
-    }
-}
 
 const PORT = parseInt(process.env.PORT || '3001', 10);
 
