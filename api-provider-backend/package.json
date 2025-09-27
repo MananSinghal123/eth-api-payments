@@ -13,7 +13,7 @@
     "prestart": "npm run build"
   },
   "dependencies": {
-    "@api-mertering-zk/proof-system": "^1.0.0",
+    "@api-mertering-zk/proof-system": "^1.2.0",
     "@api-mertering-zk/zk-proof-utils": "1.5.0",
     "@aztec/bb.js": "^1.2.1",
     "@noir-lang/noir_js": "^1.0.0-beta.11",

@@ -1,6 +1,6 @@
 {
   "name": "@api-mertering-zk/proof-system",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "description": "Zero-knowledge proof system for API metering using Noir and bb.js",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
