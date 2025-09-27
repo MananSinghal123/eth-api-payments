@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package eth.escrow.v1;
+
+message Events {
+  repeated EscrowEvent events = 1;
+}
+
+message EscrowEvent {
+  string event_type = 1;           // "EscrowCreated", "EscrowCompleted", "EscrowRefunded"
+  string escrow_id = 2;           // The escrow ID
+  string buyer = 3;               // Buyer address
+  string seller = 4;              // Seller address
+  string amount = 5;              // Amount in wei as string
+  string transaction_hash = 6;    // Transaction hash
+  uint64 block_number = 7;        // Block number
+  uint64 timestamp = 8;           // Block timestamp
+  string contract_address = 9;    // Escrow contract address
+}

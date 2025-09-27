@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   useAccount,
   useChainId,
@@ -7,7 +7,7 @@ import {
   useWaitForTransactionReceipt,
   useReadContract,
 } from "wagmi";
-import { parseUnits, formatUnits } from "viem";
+import { parseUnits } from "viem";
 import { sepolia } from "wagmi/chains";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +26,8 @@ import {
   ArrowDown,
 } from "lucide-react";
 import { useEscrowBalance } from "../lib/useEscrowBalance";
+import { useEscrowEvents } from "@/hooks/useEscrowEvents";
+import { formatShortHash } from "@/lib/escrow-events";
 
 // Contract addresses and ABIs
 const PYUSD_SEPOLIA_ADDRESS =
@@ -93,10 +95,12 @@ const EscrowDashboard: React.FC = () => {
   const {
     formattedBalance,
     balanceAsNumber,
-    isLoading: isEscrowLoading,
-    isError: isEscrowError,
-    refetch: refetchEscrowBalance,
+  isLoading: isEscrowLoading,
+  refetch: refetchEscrowBalance,
   } = useEscrowBalance(address, isConnected && isSepoliaChain);
+
+  const { events: escrowEvents, status: streamStatus, error: streamError } = useEscrowEvents({ limit: 20 });
+  const recentEscrowEvents = useMemo(() => escrowEvents.slice(0, 5), [escrowEvents]);
 
   // Fetch PYUSD balance
   const {
@@ -114,7 +118,7 @@ const EscrowDashboard: React.FC = () => {
   });
 
   // Check allowance
-  const { data: allowance, refetch: refetchAllowance } = useReadContract({
+  const { data: allowance } = useReadContract({
     address: PYUSD_SEPOLIA_ADDRESS,
     abi: ERC20_ABI,
     functionName: "allowance",
@@ -242,8 +246,11 @@ const handleDeposit = async () => {
           chainId: sepolia.id,
         });
       }
-    } catch (err: any) {
-      console.log(err.message);
+    } catch (err) {
+      if (err instanceof Error) {
+        console.log(err.message);
+        setError(err.message);
+      }
       setCurrentStep("error");
     }
   };
@@ -254,7 +261,6 @@ const handleDeposit = async () => {
 
     try {
       setCurrentStep("processing");
-      // Convert USD amount to cents for withdrawal
       const amountCents = Math.round(parseFloat(withdrawAmount) * 100);
       const amountBig = BigInt(amountCents);
       withdrawFromEscrow({
@@ -264,8 +270,10 @@ const handleDeposit = async () => {
         args: [amountBig],
         chainId: sepolia.id,
       });
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message);
+      }
       setCurrentStep("error");
     }
   };
@@ -536,6 +544,46 @@ const handleDeposit = async () => {
               <Badge variant="outline" className="border-green-500/50 text-green-500">
                 Active
               </Badge>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Activity className="w-4 h-4 text-blue-400" />
+                  <span className="text-sm text-gray-300">Live Escrow Events</span>
+                </div>
+                <Badge className="bg-blue-500/10 border-blue-500/20 text-blue-300">
+                  {streamStatus === "open" ? "Streaming" : streamStatus === "error" ? "Reconnecting" : "Connecting"}
+                </Badge>
+              </div>
+              {streamError && (
+                <div className="text-xs text-amber-300">
+                  Stream issue: {streamError}
+                </div>
+              )}
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                {recentEscrowEvents.length === 0 ? (
+                  <div className="text-sm text-gray-500">No events yet. Interact with the escrow to see updates.</div>
+                ) : (
+                  recentEscrowEvents.map((event) => (
+                    <div
+                      key={`${event.transactionHash}-${event.logIndex ?? Math.random()}`}
+                      className="p-3 bg-gray-800/30 border border-gray-700/40 rounded-lg"
+                    >
+                      <div className="flex items-center justify-between text-xs text-gray-400">
+                        <span>Block {event.blockNumber ?? "-"}</span>
+                        <span>{event.timestamp ?? "just now"}</span>
+                      </div>
+                      <div className="mt-1 text-sm text-gray-200">
+                        Tx: {formatShortHash(event.transactionHash ?? undefined)}
+                      </div>
+                      <div className="mt-1 text-xs text-gray-500 break-all">
+                        Topics: {event.topics.join(", ") || "-"}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
           </>
         )}

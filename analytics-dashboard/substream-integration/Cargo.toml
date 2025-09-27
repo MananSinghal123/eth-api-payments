@@ -1,0 +1,19 @@
+[package]
+name = "substreams-escrow"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "substreams"
+crate-type = ["cdylib"]
+
+[dependencies]
+substreams = "0.5"
+substreams-ethereum = "0.9"
+hex-literal = "0.4"
+prost = "0.11"
+prost-types = "0.11"
+
+[build-dependencies]
+substreams-ethereum = "0.9"
+tonic-build = "0.9"
