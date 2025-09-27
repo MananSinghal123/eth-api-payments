@@ -111,7 +111,7 @@ export const contractConfig = {
     escrow: {
       address: getContractAddress(
         'NEXT_PUBLIC_ESCROW_SEPOLIA',
-        '0xe73922a448d76756babc9126f4401101cbfb4fbc' // Escrow contract address on Sepolia
+        '0xe73922A448D76756bAbC9126f4401101cbFB4FBc' // Correct deployed Escrow contract address on Sepolia
       ),
       abi: Escrow.abi,
       chainId: sepolia.id,
@@ -124,11 +124,32 @@ export const escrowContract = contractConfig.sepolia.escrow;
 export const pyusdTokenContract = contractConfig.sepolia.pyusdToken;
 
 
+// RPC Configuration - Multiple fallback endpoints for reliability
+const SEPOLIA_RPC_URLS = [
+  'https://ethereum-sepolia-rpc.publicnode.com',
+  'https://sepolia.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161', 
+  'https://rpc.sepolia.org',
+  'https://rpc2.sepolia.org',
+  'https://eth-sepolia.public.blastapi.io'
+];
+
+// Get RPC URL from environment or use fallbacks
+const getSepoliaRpcUrl = () => {
+  if (process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL) {
+    return process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL;
+  }
+  return SEPOLIA_RPC_URLS[0]; // Use the first fallback
+};
+
 export const config = createConfig({
   chains: [sepolia],
   connectors: [injected(), metaMask()],
   transports: {
-    [sepolia.id]: http(),
+    [sepolia.id]: http(getSepoliaRpcUrl(), {
+      timeout: 30_000, // 30 second timeout
+      retryCount: 3,
+      retryDelay: 1000,
+    }),
   },
   ssr: true,
   syncConnectedChain: true,

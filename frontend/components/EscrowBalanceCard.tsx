@@ -1,7 +1,7 @@
 import React from "react"
 import { Loader2, ArrowUpRight, ArrowDownRight, CreditCard, RefreshCw } from "lucide-react"
 import { useAccount, useChainId } from "wagmi"
-import { polygonAmoy } from "wagmi/chains"
+import { sepolia } from "wagmi/chains"
 import { useEscrowBalance } from "../lib/useEscrowBalance" // Import the custom hook
 
 interface EscrowBalanceCardProps {
@@ -22,8 +22,8 @@ const EscrowBalanceCard: React.FC<EscrowBalanceCardProps> = ({
   const { address, isConnected } = useAccount()
   const chainId = useChainId()
   
-  const isAmoyChain = chainId === polygonAmoy.id
-  const isCorrectChain = isAmoyChain
+  const isSepoliaChain = chainId === sepolia.id
+  const isCorrectChain = isSepoliaChain
 
   // Use the custom hook to fetch escrow balance
   const {
@@ -34,7 +34,7 @@ const EscrowBalanceCard: React.FC<EscrowBalanceCardProps> = ({
     error: escrowError,
     refetch: refetchEscrowBalance,
     hasBalance
-  } = useEscrowBalance(address, isConnected && isAmoyChain)
+  } = useEscrowBalance(address, isConnected && isSepoliaChain)
 
   // Format balance for display with $ prefix
   const formatPYUSD = (balance: string | number | undefined): string => {
@@ -64,7 +64,7 @@ const EscrowBalanceCard: React.FC<EscrowBalanceCardProps> = ({
             <p className="text-sm font-semibold text-slate-400 uppercase tracking-wider">
               Escrow Balance
             </p>
-            {isConnected && isAmoyChain && (
+            {isConnected && isSepoliaChain && (
               <button
                 onClick={handleRefresh}
                 disabled={isEscrowLoading || isPending || isConfirming}
@@ -79,8 +79,8 @@ const EscrowBalanceCard: React.FC<EscrowBalanceCardProps> = ({
           <div className="text-3xl font-bold text-white mb-4">
             {!isConnected ? (
               <span className="text-slate-500 text-xl">Connect Wallet</span>
-            ) : !isAmoyChain ? (
-              <span className="text-amber-400 text-xl">Switch to Amoy</span>
+            ) : !isSepoliaChain ? (
+              <span className="text-amber-400 text-xl">Switch to Sepolia</span>
             ) : isEscrowLoading ? (
               <div className="flex items-center">
                 <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
@@ -103,7 +103,7 @@ const EscrowBalanceCard: React.FC<EscrowBalanceCardProps> = ({
           </div>
 
           {/* Action buttons */}
-          {isConnected && isAmoyChain && !isEscrowError && (
+          {isConnected && isSepoliaChain && !isEscrowError && (
             <div className="flex flex-col space-y-2">
               <button
                 onClick={() => setShowDepositModal(true)}
@@ -133,16 +133,16 @@ const EscrowBalanceCard: React.FC<EscrowBalanceCardProps> = ({
           )}
 
           {/* Network warning for connected users on wrong chain */}
-          {isConnected && !isAmoyChain && (
+          {isConnected && !isSepoliaChain && (
             <div className="mt-4 p-3 bg-amber-900/20 border border-amber-500/30 rounded-lg">
               <p className="text-amber-400 text-xs font-medium">
-                Switch to Polygon Amoy to view and manage your escrow balance
+                Switch to Sepolia to view and manage your escrow balance
               </p>
             </div>
           )}
 
           {/* Error retry button */}
-          {isConnected && isAmoyChain && isEscrowError && (
+          {isConnected && isSepoliaChain && isEscrowError && (
             <button
               onClick={handleRefresh}
               className="mt-2 text-sm text-red-400 hover:text-red-300 flex items-center font-medium transition-colors"
