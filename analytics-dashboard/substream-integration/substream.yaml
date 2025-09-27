@@ -1,0 +1,27 @@
+specVersion: v0.1.0
+package:
+  name: "eth_escrow_events"
+  version: v0.1.0
+
+imports:
+  ethereum: https://github.com/streamingfast/substreams-ethereum/releases/download/v0.9.0/substreams-ethereum-v0.9.0.spkg
+
+binaries:
+  default:
+    type: wasm/rust-v1
+    file: target/wasm32-unknown-unknown/release/substreams.wasm
+
+modules:
+  - name: map_escrow_events
+    kind: map
+    initialBlock: 5000000
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+    output:
+      type: proto:eth.escrow.v1.Events
+
+protobuf:
+  files:
+    - escrow.proto
+  importPaths:
+    - ./proto
