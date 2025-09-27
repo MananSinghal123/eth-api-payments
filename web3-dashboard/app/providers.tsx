@@ -1,25 +1,19 @@
-'use client';
+'use client'
 
-import * as React from 'react';
-import { WagmiProvider } from 'wagmi';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ConnectKitProvider } from 'connectkit';
+import React from 'react'
+import { WagmiProvider } from 'wagmi'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { config } from '../lib/wagmi' 
 
-import { config } from '@/lib/wagmi'; // Uses the Sepolia-configured config
-
-const queryClient = new QueryClient();
+// Initialize TanStack Query client for state management
+const queryClient = new QueryClient()
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
-        <ConnectKitProvider 
-          theme="minimal"
-          mode="light"
-        >
-          {children}
-        </ConnectKitProvider>
+        {children}
       </QueryClientProvider>
     </WagmiProvider>
-  );
+  )
 }
