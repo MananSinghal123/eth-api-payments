@@ -10,7 +10,10 @@
     "dotenv": "^16.3.1"
   },
   "scripts": {
+    "build": "wsl cargo build --target wasm32-unknown-unknown --release",
     "start": "node src/index.js",
-    "dev": "node src/index.js"
+    "stream": "node src/index.js",
+    "dev": "npm run build && npm run stream",
+    "build-package": "wsl substreams pack substream.yaml"
   }
 }

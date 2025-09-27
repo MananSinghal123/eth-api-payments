@@ -2,6 +2,7 @@ specVersion: v0.1.0
 package:
   name: "eth_escrow_events"
   version: v0.1.0
+network: sepolia
 
 imports:
   ethereum: https://github.com/streamingfast/substreams-ethereum/releases/download/v0.9.0/substreams-ethereum-v0.9.0.spkg
