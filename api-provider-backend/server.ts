@@ -372,6 +372,25 @@ app.get('/api/weather/:city', async (req: Request, res: Response) => {
     }
 });
 
+// Health check endpoint for container orchestration
+app.get('/health', (req: Request, res: Response) => {
+    const healthCheck = {
+        uptime: process.uptime(),
+        message: 'OK',
+        timestamp: Date.now(),
+        proofSystemInitialized: isInitialized,
+        redisAvailable: REDIS_ENABLED
+    };
+    
+    if (!isInitialized) {
+        return res.status(503).json({
+            ...healthCheck,
+            message: 'Service Unavailable - Proof system not initialized'
+        });
+    }
+    
+    res.status(200).json(healthCheck);
+});
 
 const PORT = parseInt(process.env.PORT || '3001', 10);
 

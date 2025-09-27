@@ -8,7 +8,9 @@
     "dev": "tsx watch server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "clean": "rm -rf dist"
+    "start:prod": "NODE_ENV=production node dist/server.js",
+    "clean": "rm -rf dist",
+    "prestart": "npm run build"
   },
   "dependencies": {
     "@api-mertering-zk/zk-proof-utils": "1.5.0",

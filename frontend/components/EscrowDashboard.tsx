@@ -17,15 +17,13 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import {
   Shield,
-  TrendingUp,
-  TrendingDown,
   Loader2,
   CheckCircle,
   AlertCircle,
   Wallet,
-  Bot,
-  Activity,
   RefreshCw,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import { useEscrowBalance } from "../lib/useEscrowBalance";
 
@@ -282,16 +280,12 @@ const handleDeposit = async () => {
     isApproveConfirming || isDepositConfirming || isWithdrawConfirming;
 
   return (
-    <Card className="border-gray-800/50 bg-gradient-to-br from-gray-900/40 to-black/40 backdrop-blur-sm">
+    <Card className="border-gray-800 bg-gray-900/50">
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <div className="p-2 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-lg">
-              <Shield className="w-5 h-5 text-blue-400" />
-            </div>
-            <span className="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-              Smart Escrow
-            </span>
+          <div className="flex items-center space-x-3">
+            <Shield className="w-5 h-5 text-white" />
+            <span className="text-white">Escrow Management</span>
           </div>
           <Button
             variant="ghost"
@@ -301,7 +295,7 @@ const handleDeposit = async () => {
               refetchPyusdBalance();
             }}
             disabled={isEscrowLoading || isPyusdLoading}
-            className="h-8 w-8 p-0 hover:bg-gray-800/50"
+            className="h-8 w-8 p-0 hover:bg-gray-800"
           >
             <RefreshCw
               className={`w-4 h-4 text-gray-400 ${
@@ -315,10 +309,10 @@ const handleDeposit = async () => {
       <CardContent className="space-y-6">
         {/* Connection Status */}
         {!isConnected ? (
-          <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+          <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
             <div className="flex items-center space-x-2">
-              <Wallet className="w-5 h-5 text-amber-400" />
-              <span className="text-amber-400 font-medium">
+              <Wallet className="w-5 h-5 text-yellow-500" />
+              <span className="text-yellow-500 font-medium">
                 Connect your wallet to continue
               </span>
             </div>
@@ -326,10 +320,10 @@ const handleDeposit = async () => {
         ) : !isSepoliaChain ? (
           <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
             <div className="flex items-center space-x-2">
-              <AlertCircle className="w-5 h-5 text-red-400" />
+              <AlertCircle className="w-5 h-5 text-red-500" />
               <div>
-                <div className="text-red-400 font-medium">Wrong Network</div>
-                <div className="text-red-300 text-sm">
+                <div className="text-red-500 font-medium">Wrong Network</div>
+                <div className="text-red-400 text-sm">
                   Switch to Sepolia to use escrow
                 </div>
               </div>
@@ -339,61 +333,57 @@ const handleDeposit = async () => {
           <>
             {/* Balance Display */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-4 rounded-xl bg-gradient-to-r from-blue-900/20 to-blue-800/20 border border-blue-500/20">
+              <div className="p-4 rounded-lg border border-gray-800 bg-gray-800/30">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm text-gray-400">Escrow Balance</span>
-                  <Bot className="w-4 h-4 text-blue-400" />
+                  <Shield className="w-4 h-4 text-white" />
                 </div>
-                <div className="text-2xl font-bold">
+                <div className="text-3xl font-bold text-white">
                   {isEscrowLoading ? (
-                    <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
+                    <Loader2 className="w-6 h-6 animate-spin" />
                   ) : (
-                    <span className="bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
-                      ${balanceAsNumber.toFixed(2)}
-                    </span>
+                    `$${balanceAsNumber.toFixed(2)}`
                   )}
                 </div>
               </div>
 
-              <div className="p-4 rounded-xl bg-gradient-to-r from-purple-900/20 to-purple-800/20 border border-purple-500/20">
+              <div className="p-4 rounded-lg border border-gray-800 bg-gray-800/30">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm text-gray-400">Wallet Balance</span>
-                  <Wallet className="w-4 h-4 text-purple-400" />
+                  <Wallet className="w-4 h-4 text-white" />
                 </div>
-                <div className="text-2xl font-bold">
+                <div className="text-3xl font-bold text-white">
                   {isPyusdLoading ? (
-                    <Loader2 className="w-6 h-6 animate-spin text-purple-400" />
+                    <Loader2 className="w-6 h-6 animate-spin" />
                   ) : (
-                    <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-                      {formatBalance(pyusdBalance)}
-                    </span>
+                    formatBalance(pyusdBalance)
                   )}
                 </div>
               </div>
             </div>
 
             {/* Transaction Tabs */}
-            <div className="flex space-x-1 bg-gray-900/50 p-1 rounded-lg">
+            <div className="flex space-x-1 bg-gray-800 p-1 rounded-lg">
               <button
                 onClick={() => setActiveTab("deposit")}
-                className={`flex items-center space-x-2 px-4 py-2 rounded-md transition-all ${
+                className={`flex items-center space-x-2 px-4 py-2 rounded-md transition-all flex-1 justify-center ${
                   activeTab === "deposit"
-                    ? "bg-blue-600 text-white"
-                    : "text-gray-400 hover:text-white hover:bg-gray-800/50"
+                    ? "bg-white text-black"
+                    : "text-gray-400 hover:text-white"
                 }`}
               >
-                <TrendingUp className="w-4 h-4" />
+                <ArrowUp className="w-4 h-4" />
                 <span>Deposit</span>
               </button>
               <button
                 onClick={() => setActiveTab("withdraw")}
-                className={`flex items-center space-x-2 px-4 py-2 rounded-md transition-all ${
+                className={`flex items-center space-x-2 px-4 py-2 rounded-md transition-all flex-1 justify-center ${
                   activeTab === "withdraw"
-                    ? "bg-purple-600 text-white"
-                    : "text-gray-400 hover:text-white hover:bg-gray-800/50"
+                    ? "bg-white text-black"
+                    : "text-gray-400 hover:text-white"
                 }`}
               >
-                <TrendingDown className="w-4 h-4" />
+                <ArrowDown className="w-4 h-4" />
                 <span>Withdraw</span>
               </button>
             </div>
@@ -414,18 +404,18 @@ const handleDeposit = async () => {
                     <Loader2 className="w-4 h-4 animate-spin" />
                   )}
                   {currentStep === "success" && (
-                    <CheckCircle className="w-4 h-4 text-green-400" />
+                    <CheckCircle className="w-4 h-4 text-green-500" />
                   )}
                   {currentStep === "error" && (
-                    <AlertCircle className="w-4 h-4 text-red-400" />
+                    <AlertCircle className="w-4 h-4 text-red-500" />
                   )}
                   <span
                     className={`font-medium ${
                       currentStep === "success"
-                        ? "text-green-400"
+                        ? "text-green-500"
                         : currentStep === "error"
-                        ? "text-red-400"
-                        : "text-blue-400"
+                        ? "text-red-500"
+                        : "text-blue-500"
                     }`}
                   >
                     {currentStep === "approving"
@@ -456,7 +446,7 @@ const handleDeposit = async () => {
                       value={depositAmount}
                       onChange={(e) => setDepositAmount(e.target.value)}
                       placeholder="0.00"
-                      className="flex-1 bg-gray-800/50 border-gray-700/50 text-white"
+                      className="flex-1 bg-gray-800 border-gray-700 text-white placeholder:text-gray-500"
                       disabled={isPending || isConfirming}
                     />
                     <Button
@@ -465,7 +455,7 @@ const handleDeposit = async () => {
                         pyusdBalance && setDepositAmount(pyusdBalance.formatted)
                       }
                       disabled={!pyusdBalance || isPending || isConfirming}
-                      className="border-gray-700/50 text-gray-300 hover:bg-gray-800/50"
+                      className="border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white"
                     >
                       Max
                     </Button>
@@ -480,7 +470,7 @@ const handleDeposit = async () => {
                     isPending ||
                     isConfirming
                   }
-                  className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600"
+                  className="w-full bg-white text-black hover:bg-gray-100"
                 >
                   {isPending || isConfirming ? (
                     <Loader2 className="w-4 h-4 animate-spin mr-2" />
@@ -504,7 +494,7 @@ const handleDeposit = async () => {
                       onChange={(e) => setWithdrawAmount(e.target.value)}
                       placeholder="0.00"
                       max={formattedBalance || "0"}
-                      className="flex-1 bg-gray-800/50 border-gray-700/50 text-white"
+                      className="flex-1 bg-gray-800 border-gray-700 text-white placeholder:text-gray-500"
                       disabled={isPending || isConfirming}
                     />
                     <Button
@@ -513,7 +503,7 @@ const handleDeposit = async () => {
                         formattedBalance && setWithdrawAmount(formattedBalance)
                       }
                       disabled={!formattedBalance || isPending || isConfirming}
-                      className="border-gray-700/50 text-gray-300 hover:bg-gray-800/50"
+                      className="border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white"
                     >
                       Max
                     </Button>
@@ -529,27 +519,21 @@ const handleDeposit = async () => {
                     isPending ||
                     isConfirming
                   }
-                  className="w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600"
+                  className="w-full bg-white text-black hover:bg-gray-100"
                 >
                   {isPending || isConfirming ? (
                     <Loader2 className="w-4 h-4 animate-spin mr-2" />
                   ) : null}
-                  Withdraw
+                  Withdraw from Escrow
                 </Button>
               </div>
             )}
 
-            {/* AI Agent Status */}
-            <Separator className="bg-gray-800/50" />
-            <div className="flex items-center justify-between p-3 bg-gray-800/20 rounded-lg">
-              <div className="flex items-center space-x-2">
-                <Activity className="w-4 h-4 text-green-400" />
-                <span className="text-sm text-gray-300">AI Agent Status</span>
-              </div>
-              <Badge
-                variant="secondary"
-                className="bg-green-500/10 text-green-400 border-green-500/20"
-              >
+            {/* Status */}
+            <Separator className="bg-gray-800" />
+            <div className="flex items-center justify-between p-3 bg-gray-800/30 rounded-lg">
+              <span className="text-sm text-gray-300">Escrow Status</span>
+              <Badge variant="outline" className="border-green-500/50 text-green-500">
                 Active
               </Badge>
             </div>

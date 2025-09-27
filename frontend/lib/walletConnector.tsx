@@ -33,15 +33,15 @@ export default function WalletConnector() {
   if (isConnected && address) {
     return (
       <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
+        <div className="flex items-center gap-2 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg">
           <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-          <span className="font-mono text-sm text-green-800">
+          <span className="font-mono text-sm text-white">
             {truncateAddress(address)}
           </span>
         </div>
         <button
           onClick={handleDisconnect}
-          className="flex items-center gap-2 px-3 py-2 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg text-red-700 transition-colors"
+          className="flex items-center gap-2 px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-gray-300 hover:text-white transition-colors"
           title="Disconnect wallet"
         >
           <LogOut className="w-4 h-4" />
@@ -55,7 +55,7 @@ export default function WalletConnector() {
     <button
       onClick={handleConnect}
       disabled={isPending}
-      className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors font-medium"
+      className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-gray-100 disabled:bg-gray-300 text-black rounded-lg transition-colors font-medium"
     >
       <Wallet className="w-4 h-4" />
       <span>{isPending ? "Connecting..." : "Connect Wallet"}</span>

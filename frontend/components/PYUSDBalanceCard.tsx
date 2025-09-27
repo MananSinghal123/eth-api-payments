@@ -1,5 +1,5 @@
 import React from "react";
-import { Loader2, Bot, Zap, Coins, TrendingUp, RefreshCw } from "lucide-react";
+import { Loader2, Wallet, RefreshCw, AlertCircle } from "lucide-react";
 import { useAccount, useChainId, useBalance } from "wagmi";
 import { sepolia } from "wagmi/chains";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -54,23 +54,19 @@ const PYUSDBalanceCard: React.FC<PYUSDBalanceCardProps> = (
   };
 
   return (
-    <Card className="border-gray-800/50 bg-gradient-to-br from-gray-900/40 to-black/40 backdrop-blur-sm hover:border-gray-700/50 transition-all duration-300">
-      <CardHeader className="pb-4">
+    <Card className="border-gray-800 bg-gray-900/50">
+      <CardHeader>
         <CardTitle className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <div className="p-2 bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 rounded-lg">
-              <Coins className="w-5 h-5 text-emerald-400" />
-            </div>
-            <span className="bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">
-              Token Assets
-            </span>
+          <div className="flex items-center space-x-3">
+            <Wallet className="w-5 h-5 text-white" />
+            <span className="text-white">PYUSD Balance</span>
           </div>
           <Button
             variant="ghost"
             size="sm"
             onClick={handleRefresh}
             disabled={isPyusdLoading}
-            className="h-8 w-8 p-0 hover:bg-gray-800/50"
+            className="h-8 w-8 p-0 hover:bg-gray-800"
           >
             <RefreshCw
               className={`w-4 h-4 text-gray-400 ${
@@ -81,76 +77,58 @@ const PYUSDBalanceCard: React.FC<PYUSDBalanceCardProps> = (
         </CardTitle>
       </CardHeader>
 
-      <CardContent className="space-y-6">
-        {/* PYUSD Balance (Sepolia) */}
-        <div className="p-4 rounded-xl bg-gradient-to-r from-blue-900/20 to-blue-800/20 border border-blue-500/20">
-          <div className="flex items-center justify-between mb-2">
+      <CardContent className="space-y-4">
+        {/* PYUSD Balance */}
+        <div className="p-4 rounded-lg border border-gray-800 bg-gray-800/30">
+          <div className="flex items-center justify-between mb-3">
             <div className="flex items-center space-x-2">
-              <Badge
-                variant="secondary"
-                className="bg-blue-500/10 text-blue-400 border-blue-500/20"
-              >
+              <Badge variant="outline" className="border-gray-600 text-gray-300">
                 Sepolia
               </Badge>
               <span className="text-sm font-medium text-gray-300">PYUSD</span>
             </div>
-            <TrendingUp className="w-4 h-4 text-blue-400" />
           </div>
 
-          <div className="text-2xl font-bold">
+          <div className="text-3xl font-bold mb-2">
             {!isConnected ? (
               <span className="text-gray-500">Connect Wallet</span>
             ) : isPyusdLoading ? (
               <div className="flex items-center space-x-2">
-                <Loader2 className="w-5 h-5 animate-spin text-blue-400" />
-                <span className="text-blue-400">Loading...</span>
+                <Loader2 className="w-5 h-5 animate-spin text-white" />
+                <span className="text-white">Loading...</span>
               </div>
             ) : isPyusdError ? (
-              <span className="text-red-400">Error</span>
+              <span className="text-red-500">Error</span>
             ) : (
-              <span className="bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
+              <span className="text-white">
                 {formatBalance(pyusdBalance)}
               </span>
             )}
           </div>
 
-          <div className="text-xs text-gray-500 mt-1">
-            Smart contract • Testnet
+          <div className="text-xs text-gray-400">
+            Sepolia Testnet • PYUSD Token
           </div>
         </div>
 
-        {/* Action buttons - only show when connected */}
+        {/* Status */}
         {isConnected && (
-          <div className="pt-2">
+          <div>
             {!isSepoliaChain ? (
-              <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-                <p className="text-sm text-amber-400 flex items-center">
-                  <Zap className="w-4 h-4 mr-2" />
-                  Switch to Sepolia to interact with tokens
+              <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                <p className="text-sm text-yellow-500 flex items-center">
+                  <AlertCircle className="w-4 h-4 mr-2" />
+                  Switch to Sepolia to view balance
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-3">
-                <div className="p-3 bg-gray-800/30 rounded-lg border border-gray-700/50">
-                  <div className="text-xs text-gray-400 mb-1">
-                    Network Status
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-                    <span className="text-sm text-green-400 font-medium">
-                      Active
-                    </span>
-                  </div>
-                </div>
-
-                <div className="p-3 bg-gray-800/30 rounded-lg border border-gray-700/50">
-                  <div className="text-xs text-gray-400 mb-1">AI Agent</div>
-                  <div className="flex items-center space-x-2">
-                    <Bot className="w-3 h-3 text-blue-400" />
-                    <span className="text-sm text-blue-400 font-medium">
-                      Ready
-                    </span>
-                  </div>
+              <div className="flex items-center justify-between p-3 bg-gray-800/30 rounded-lg border border-gray-700/50">
+                <span className="text-sm text-gray-300">Network Status</span>
+                <div className="flex items-center space-x-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full" />
+                  <span className="text-sm text-green-500 font-medium">
+                    Connected
+                  </span>
                 </div>
               </div>
             )}

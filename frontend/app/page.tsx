@@ -173,9 +173,17 @@ export default function LandingPage() {
         <p className="text-lg sm:text-xl lg:text-2xl mb-12 sm:mb-16 lg:mb-20 text-gray-300 max-w-sm sm:max-w-2xl lg:max-w-3xl mx-auto font-light leading-relaxed">
           Enable AI agents to handle micropayments, generate zero-knowledge proofs, and settle transactions seamlessly on Polygon.
         </p>
-        <button  onClick={() => router.push("/dashboard")} className="bg-white text-black font-semibold py-3 px-6 sm:py-4 sm:px-8 rounded-lg text-base sm:text-lg hover:bg-gray-200 transition duration-300 transform hover:scale-105">
-          Get Started
-        </button>
+        <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center items-center">
+          <button onClick={() => router.push("/docs")} className="bg-white text-black font-semibold py-3 px-6 sm:py-4 sm:px-8 rounded-lg text-base sm:text-lg hover:bg-gray-200 transition duration-300 transform hover:scale-105 w-full sm:w-auto">
+            Visit Docs
+          </button>
+          <button onClick={() => router.push("/playground")} className="border-2 border-white text-white font-semibold py-3 px-6 sm:py-4 sm:px-8 rounded-lg text-base sm:text-lg hover:bg-white hover:text-black transition duration-300 transform hover:scale-105 w-full sm:w-auto">
+            Playground
+          </button>
+          <button onClick={() => router.push("/dashboard")} className="bg-gradient-to-r from-purple-500 to-blue-500 text-white font-semibold py-3 px-6 sm:py-4 sm:px-8 rounded-lg text-base sm:text-lg hover:from-purple-600 hover:to-blue-600 transition duration-300 transform hover:scale-105 w-full sm:w-auto">
+            Dashboard
+          </button>
+        </div>
       </main>
       
       <Canvas shadows camera={{ position: [25, 25, 25], fov: 50 }} className="absolute inset-0">
