@@ -1,0 +1,56 @@
+{
+  "name": "@api-mertering-zk/proof-system",
+  "version": "1.0.0",
+  "description": "Zero-knowledge proof system for API metering using Noir and bb.js",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "api_metering.json",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run clean && npm run build",
+    "dev": "tsc --watch"
+  },
+  "keywords": [
+    "zero-knowledge",
+    "proof-system",
+    "noir",
+    "bb.js",
+    "api-metering",
+    "zk-snark",
+    "ethereum",
+    "api-payments"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MananSinghal123/eth-api-payments.git",
+    "directory": "proof-system-package"
+  },
+  "dependencies": {
+    "@aztec/bb.js": "^1.2.1",
+    "@noir-lang/noir_js": "^1.0.0-beta.11"
+  },
+  "devDependencies": {
+    "@types/node": "^24.5.2",
+    "typescript": "^5.9.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

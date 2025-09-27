@@ -1,21 +1,22 @@
 import express from 'express';
 import type { Request, Response } from 'express';
-import fs from 'fs';
-import path from 'path';
 import crypto from 'crypto';
 
 import { Redis } from '@upstash/redis';
 import cors from 'cors';
 import * as dotenv from 'dotenv';
 import { 
-//   initializeProofSystem, 
   generateBatchProof, 
   notifyPaymentGateway 
 } from '@api-mertering-zk/zk-proof-utils';
 
-// Import bb.js and Noir
-import { UltraHonkBackend } from '@aztec/bb.js';
-import { Noir } from '@noir-lang/noir_js';
+// Import proof system utilities
+import { 
+    initializeProofSystem, 
+    getNoir, 
+    getBackend, 
+    getIsInitialized 
+} from './proof-system.js';
 
 // Types
 interface WeatherData {
@@ -38,37 +39,8 @@ interface BatchData {
     lastUpdated: number; // Timestamp for cleanup
 }
 
-// interface ProofInputs {
-//     individual_usages: number[];
-//     num_calls: number;
-//     total_claimed_usage: number;
-//     [key: string]: string | number | string[] | number[] | boolean | boolean[];
-// }
-
-// interface ProofResult {
-//     proof: string;
-//     publicInputs: string[];
-//     inputs: ProofInputs;
-// }
-
-// interface PaymentData {
-//     batchId: string;
-//     walletAddress: string;
-//     proof: string;
-//     publicInputs: string[];
-//     endpoint: string;
-//     processingTime: number;
-//     batchData: BatchData;
-// }
-
-// interface GenerateBatchProofParams {
-//     batchData: BatchData;
-//     batchId: string;
-//     noir?: Noir | null;
-//     backend?: UltraHonkBackend | null;
-// }
-
 dotenv.config();
+
 // Initialize Express app
 const app = express();
 app.use(express.json());
@@ -77,9 +49,8 @@ app.use(cors({
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE', // Specify the allowed methods
     credentials: true, // Allow cookies and authentication headers
 }));
+
 // Configuration
-const CIRCUIT_PATH = '../noir/api_metering';
-const COMPILED_CIRCUIT_PATH = path.join(CIRCUIT_PATH, 'target', 'api_metering.json');
 const PAYMENT_GATEWAY_URL = process.env.PAYMENT_GATEWAY_URL || 'http://localhost:3002';
 const BATCH_SIZE = 4; // Process batch every 4 calls
 const BATCH_CLEANUP_INTERVAL = 1000 * 60 * 10; // 10 minutes cleanup interval
@@ -97,48 +68,8 @@ if (REDIS_ENABLED) {
     console.warn('⚠️ Redis credentials not found. Running without Redis caching.');
 }
 
-// Global variables for proof system
-let circuit: any = null;
-let noir: Noir | null = null;
-let backend: UltraHonkBackend | null = null;
-let isInitialized = false;
-
 // In-memory batch storage (in production, use Redis for persistence)
 const batchStorage = new Map<string, BatchData>();
-
-// Initialize proof system
-async function initializeProofSystem(): Promise<void> {
-    try {
-        console.log('🔄 Initializing proof system...');
-        
-        if (!fs.existsSync(COMPILED_CIRCUIT_PATH)) {
-            throw new Error(`Compiled circuit not found at: ${COMPILED_CIRCUIT_PATH}`);
-        }
-        
-        const circuitData = fs.readFileSync(COMPILED_CIRCUIT_PATH, 'utf8');
-        circuit = JSON.parse(circuitData);
-        
-        noir = new Noir(circuit);
-        backend = new UltraHonkBackend(circuit.bytecode);
-        
-        isInitialized = true;
-        console.log('✅ Proof system ready!');
-        
-        // Test Redis connection if available
-        if (redis) {
-            await redis.ping();
-            console.log('✅ Redis connection established!');
-        }
-        
-        // Start batch cleanup timer
-        startBatchCleanup();
-        
-    } catch (error: any) {
-        console.error('❌ Failed to initialize proof system:', error.message);
-        throw error;
-    }
-}
-// await initializeProofSystem(CIRCUIT_PATH,COMPILED_CIRCUIT_PATH);
 
 // Cache helper functions
 async function getCachedWeather(city: string): Promise<WeatherData | null> {
@@ -241,6 +172,10 @@ async function processBatch(walletAddress: string): Promise<void> {
         const batchId = crypto.randomUUID();
         console.log(`🔄 Processing batch for wallet ${walletAddress} (ID: ${batchId})`);
         
+        // Get the initialized Noir and backend instances
+        const noir = getNoir();
+        const backend = getBackend();
+        
         // Generate ZK proof for the batch
         const proofResult = await generateBatchProof({
             batchData,
@@ -286,7 +221,7 @@ function startBatchCleanup(): void {
 
 // Main API endpoint with batching flow
 app.get('/api/weather/:city', async (req: Request, res: Response) => {
-    if (!isInitialized) {
+    if (!getIsInitialized()) {
         return res.status(503).json({ error: 'Proof system not initialized' });
     }
     
@@ -378,11 +313,11 @@ app.get('/health', (req: Request, res: Response) => {
         uptime: process.uptime(),
         message: 'OK',
         timestamp: Date.now(),
-        proofSystemInitialized: isInitialized,
+        proofSystemInitialized: getIsInitialized(),
         redisAvailable: REDIS_ENABLED
     };
     
-    if (!isInitialized) {
+    if (!getIsInitialized()) {
         return res.status(503).json({
             ...healthCheck,
             message: 'Service Unavailable - Proof system not initialized'
@@ -401,6 +336,15 @@ async function startServer(): Promise<void> {
         });
         
         await initializeProofSystem();
+        
+        // Test Redis connection if available
+        if (redis) {
+            await redis.ping();
+            console.log('✅ Redis connection established!');
+        }
+        
+        // Start batch cleanup timer
+        startBatchCleanup();
         
         console.log(`🎉 Server ready on port ${PORT}!`);
         console.log(`🔗 Test API: http://localhost:${PORT}/api/weather/london`);
