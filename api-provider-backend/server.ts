@@ -76,7 +76,7 @@ const app = express();
 app.use(express.json());
 app.use(
   cors({
-    origin: "http://localhost:3000", // Allow requests only from your client
+    origin: "*", // Allow requests from all
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE", // Specify the allowed methods
     credentials: true, // Allow cookies and authentication headers
   })
