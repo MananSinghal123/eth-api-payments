@@ -32,7 +32,7 @@ import { useEscrowBalance } from "../lib/useEscrowBalance";
 // Contract addresses and ABIs
 const PYUSD_SEPOLIA_ADDRESS =
   "0xCaC524BcA292aaade2DF8A05cC58F0a65B1B3bB9" as const;
-const ESCROW_ADDRESS = "0xe73922A448D76756bAbC9126f4401101cbFB4FBc" as const;
+const ESCROW_ADDRESS = "0x6E5559e7Cf01860416ff9CbEcC3bbdC1f05dB3D0" as const;
 
 const ERC20_ABI = [
   {
@@ -164,12 +164,13 @@ const EscrowDashboard: React.FC = () => {
   React.useEffect(() => {
     if (isApproveSuccess && currentStep === "approving") {
       setCurrentStep("processing");
-      const amountBig = parseUnits(depositAmount, 6); // Convert to wei for PYUSD
+      // Use 0 decimals for the USD amount expected by Escrow.sol's deposit function
+      const amountUSD = parseUnits(depositAmount, 0); 
       depositToEscrow({
         address: ESCROW_ADDRESS,
         abi: ESCROW_ABI,
         functionName: "deposit",
-        args: [amountBig],
+        args: [amountUSD], // Use amountUSD (0 decimals)
         chainId: sepolia.id,
       });
     }
@@ -211,13 +212,17 @@ const EscrowDashboard: React.FC = () => {
     }
   }, [approveError, depositError, withdrawError]);
 
-  const handleDeposit = async () => {
+const handleDeposit = async () => {
     if (!address || !depositAmount || parseFloat(depositAmount) <= 0) return;
     setError("");
 
     try {
-      const amountBig = parseUnits(depositAmount, 6);
-      const needsApproval = !allowance || (allowance as bigint) < amountBig;
+      // 1. Calculate the token amount (PYUSD uses 6 decimals) for approval
+      const tokenAmount = parseUnits(depositAmount, 6);
+      // 2. Calculate the USD amount (0 decimals) for the Escrow contract's deposit function
+      const amountUSD = parseUnits(depositAmount, 0); 
+
+      const needsApproval = !allowance || (allowance as bigint) < tokenAmount;
 
       if (needsApproval) {
         setCurrentStep("approving");
@@ -226,7 +231,7 @@ const EscrowDashboard: React.FC = () => {
           address: PYUSD_SEPOLIA_ADDRESS,
           abi: ERC20_ABI,
           functionName: "approve",
-          args: [ESCROW_ADDRESS, amountBig],
+          args: [ESCROW_ADDRESS, tokenAmount], // Use tokenAmount (6 decimals) for approval
           chainId: sepolia.id,
         });
       } else {
@@ -235,7 +240,7 @@ const EscrowDashboard: React.FC = () => {
           address: ESCROW_ADDRESS,
           abi: ESCROW_ABI,
           functionName: "deposit",
-          args: [amountBig],
+          args: [amountUSD], // Use amountUSD (0 decimals) for deposit
           chainId: sepolia.id,
         });
       }

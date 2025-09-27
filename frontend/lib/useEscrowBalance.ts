@@ -2,7 +2,7 @@ import { useReadContract } from "wagmi";
 import { sepolia } from "wagmi/chains";
 import { formatUnits } from "viem";
 
-const ESCROW_ADDRESS = "0xe73922a448d76756babc9126f4401101cbfb4fbc" as const; // New escrow contract address on Sepolia
+const ESCROW_ADDRESS = "0x6E5559e7Cf01860416ff9CbEcC3bbdC1f05dB3D0" as const; // Updated escrow contract address on Sepolia
 
 const ESCROW_ABI = [
   {
@@ -46,9 +46,10 @@ export const useEscrowBalance = (
     },
   });
 
-  // Format the balance for display (amount is in cents, so divide by 100)
+  // Format the balance for display: The contract returns whole USD (0 decimals).
+  // We remove the redundant division by 100.
   const formattedBalance = rawBalance
-    ? (Number(formatUnits(rawBalance as bigint, 0)) / 100).toString()
+    ? (Number(formatUnits(rawBalance as bigint, 0))).toString()
     : "0";
   const balanceAsNumber = parseFloat(formattedBalance);
 
@@ -89,9 +90,8 @@ export const useProviderBalance = (
     },
   });
 
-  // Format the balance for display (amount is in cents, so divide by 100)
   const formattedBalance = rawBalance
-    ? (Number(formatUnits(rawBalance as bigint, 0)) / 100).toString()
+    ? (Number(formatUnits(rawBalance as bigint, 0))).toString()
     : "0";
   const balanceAsNumber = parseFloat(formattedBalance);
 

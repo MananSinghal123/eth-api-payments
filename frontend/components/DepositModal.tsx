@@ -1,15 +1,14 @@
 import React from "react"
 import { Loader2 } from "lucide-react"
 import { useAccount, useChainId, useBalance, useWriteContract, useWaitForTransactionReceipt, useReadContract } from "wagmi"
-import { formatUnits } from "viem"
+import { parseUnits, formatUnits } from "viem"
 import { sepolia } from "wagmi/chains"
-import { contractConfig } from "../lib/config"
+import { escrowContract, pyusdTokenContract } from "../lib/config"
 
-// Contract addresses from config
-const PYUSD_SEPOLIA_ADDRESS = contractConfig.sepolia.pyusdToken.address
-const ESCROW_ADDRESS = contractConfig.sepolia.escrow.address
+// Use contract addresses from config for consistency
+const PYUSD_SEPOLIA_ADDRESS = pyusdTokenContract.address
+const ESCROW_ADDRESS = escrowContract.address
 
-// Use ABIs directly with proper typing
 const ERC20_ABI = [
   {
     inputs: [
@@ -30,15 +29,12 @@ const ERC20_ABI = [
     outputs: [{ name: "", type: "bool" }],
     stateMutability: "nonpayable",
     type: "function"
-  }
-] as const
-
-const ESCROW_ABI = [
+  },
   {
-    inputs: [{ name: "amountUSD", type: "uint256" }],
-    name: "deposit",
-    outputs: [],
-    stateMutability: "nonpayable",
+    inputs: [{ name: "account", type: "address" }],
+    name: "balanceOf",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
     type: "function"
   }
 ] as const
@@ -130,32 +126,22 @@ const DepositModal: React.FC<DepositModalProps> = ({
   // Handle errors
   React.useEffect(() => {
     if (approveError) {
-      console.error('❌ Approve error:', approveError)
-      console.error('❌ Approve error details:', {
-        name: approveError.name,
-        message: approveError.message,
-        cause: approveError.cause
-      })
+      console.error('Approve error:', approveError)
       setError(`Approval failed: ${approveError.message}`)
       setCurrentStep('error')
     }
     if (depositError) {
-      console.error('❌ Deposit error:', depositError)
-      console.error('❌ Deposit error details:', {
-        name: depositError.name,
-        message: depositError.message,
-        cause: depositError.cause
-      })
+      console.error('Deposit error:', depositError)
       setError(`Deposit failed: ${depositError.message}`)
       setCurrentStep('error')
     }
     if (approveReceiptError) {
-      console.error('❌ Approve receipt error:', approveReceiptError)
+      console.error('Approve receipt error:', approveReceiptError)
       setError(`Approval transaction failed: ${approveReceiptError.message}`)
       setCurrentStep('error')
     }
     if (depositReceiptError) {
-      console.error('❌ Deposit receipt error:', depositReceiptError)
+      console.error('Deposit receipt error:', depositReceiptError)
       setError(`Deposit transaction failed: ${depositReceiptError.message}`)
       setCurrentStep('error')
     }
@@ -168,19 +154,14 @@ const DepositModal: React.FC<DepositModalProps> = ({
       setCurrentStep('depositing')
       
       try {
-        // Contract expects USD amount as integer, but our input might have decimals
-        // Convert to the correct USD amount (e.g., "5.00" -> 5)
-        const amountUSD = BigInt(Math.floor(parseFloat(depositAmount)))
-        console.log('💰 Depositing USD amount:', amountUSD.toString())
-        console.log('🔍 Input amount:', depositAmount)
-        
+        // Contract expects USD amount (e.g., 10 for $10), not token units
+        const usdAmount = parseUnits(depositAmount, 0) // No decimals for USD amount
         depositToEscrow({
           address: ESCROW_ADDRESS,
-          abi: ESCROW_ABI,
+          abi: escrowContract.abi,
           functionName: 'deposit',
-          args: [amountUSD],
+          args: [usdAmount],
           chainId: sepolia.id,
-          gas: BigInt(150000), // Set explicit gas limit
         })
       } catch (err: any) {
         console.error('Error initiating deposit:', err)
@@ -213,42 +194,23 @@ const DepositModal: React.FC<DepositModalProps> = ({
   }
 
   const handleDeposit = async () => {
-    console.log('🚀 handleDeposit called!')
-    console.log('📍 Debug info:', {
-      address,
-      depositAmount,
-      isSepoliaChain,
-      isConnected,
-      chainId
-    })
-    
     if (!address || !depositAmount || parseFloat(depositAmount) <= 0 || !isSepoliaChain) {
-      console.log('❌ Early return due to validation:', {
-        hasAddress: !!address,
-        hasDepositAmount: !!depositAmount,
-        validAmount: depositAmount ? parseFloat(depositAmount) > 0 : false,
-        isSepoliaChain
-      })
       return
     }
 
     try {
-      console.log('✅ Validation passed, starting deposit process...')
       setError('')
       
-      // Contract expects USD amount as integer, but our input might have decimals
-      // Convert to the correct USD amount (e.g., "5.00" -> 5)
-      const amountUSD = BigInt(Math.floor(parseFloat(depositAmount)))
-      // The approval should be for the actual PYUSD tokens that will be transferred
-      // Contract will transfer: amountUSD * 1e6 PYUSD tokens (since PYUSD has 6 decimals)
-      const expectedTokenTransfer = amountUSD * BigInt(1e6) // What contract will actually transfer
+      console.log('Deposit amount (USD):', depositAmount)
       
-      console.log('Deposit amount (USD):', amountUSD.toString())
-      console.log('Expected token transfer:', expectedTokenTransfer.toString(), 'PYUSD tokens (raw)')
-      console.log('Current allowance:', allowance?.toString())
+      // For approvals, we need to approve the token amount (USD * 1e6)
+      const tokenAmount = parseUnits(depositAmount, 6) // PYUSD tokens to transfer
+      // For the deposit call, we need the USD amount (no decimals)
+      const amountUSD = parseUnits(depositAmount, 0); 
+    
       
-      // Check if we need approval - use expected token transfer amount
-      const needsApproval = !allowance || (allowance as bigint) < expectedTokenTransfer
+      // Check if we need approval for the token amount
+      const needsApproval = !allowance || (allowance as bigint) < tokenAmount
       
       if (needsApproval) {
         console.log('Starting approval flow')
@@ -257,21 +219,18 @@ const DepositModal: React.FC<DepositModalProps> = ({
           address: PYUSD_SEPOLIA_ADDRESS,
           abi: ERC20_ABI,
           functionName: 'approve',
-          args: [ESCROW_ADDRESS, expectedTokenTransfer],
+          args: [ESCROW_ADDRESS, tokenAmount], // Approve token amount
           chainId: sepolia.id,
         })
       } else {
-        console.log('✅ Sufficient allowance, starting deposit directly')
-        console.log('💰 Depositing USD amount:', amountUSD.toString())
-        console.log('🔍 Input amount:', depositAmount)
+        console.log('Sufficient allowance, starting deposit directly')
         setCurrentStep('depositing')
         depositToEscrow({
           address: ESCROW_ADDRESS,
-          abi: ESCROW_ABI,
+          abi: escrowContract.abi,
           functionName: 'deposit',
-          args: [amountUSD], // Pass USD amount as bigint
+          args: [amountUSD], // Pass USD amount to contract
           chainId: sepolia.id,
-          gas: BigInt(150000), // Set explicit gas limit
         })
       }
     } catch (err: any) {
@@ -286,17 +245,6 @@ const DepositModal: React.FC<DepositModalProps> = ({
   const isConfirming = isApproveConfirming || isDepositConfirming
 
   if (!isOpen) return null
-
-  console.log('🔍 DepositModal rendered with state:', {
-    address,
-    isConnected,
-    chainId,
-    isSepoliaChain,
-    depositAmount,
-    currentStep,
-    isPending,
-    isConfirming
-  })
 
   // Format balance for display
   const formatBalance = (balanceData: typeof pyusdBalance) => {
@@ -465,10 +413,7 @@ const DepositModal: React.FC<DepositModalProps> = ({
               Cancel
             </button>
             <button
-              onClick={() => {
-                console.log('🔘 Deposit button clicked!')
-                handleDeposit()
-              }}
+              onClick={handleDeposit}
               className="flex-1 px-6 py-3 text-white bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl hover:from-blue-500 hover:to-blue-600 transition-all duration-300 disabled:opacity-50 flex items-center justify-center font-semibold shadow-lg shadow-blue-500/25"
               disabled={
                 isFormDisabled ||
