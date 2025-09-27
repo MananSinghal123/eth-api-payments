@@ -1,0 +1,33 @@
+{
+  "name": "eth-api-payments-subgraph",
+  "version": "1.0.0",
+  "description": "The Graph subgraph for ETH API Payments Escrow analytics",
+  "main": "index.js",
+  "scripts": {
+    "build": "graph build",
+    "codegen": "graph codegen",
+    "deploy": "graph deploy --studio eth-api-payments-analytics",
+    "create-local": "graph create --node http://localhost:8020/ eth-api-payments-analytics",
+    "remove-local": "graph remove --node http://localhost:8020/ eth-api-payments-analytics",
+    "deploy-local": "graph deploy --node http://localhost:8020/ --ipfs http://localhost:5001 eth-api-payments-analytics",
+    "auth": "graph auth --studio",
+    "test": "graph test"
+  },
+  "dependencies": {
+    "@graphprotocol/graph-cli": "^0.80.0",
+    "@graphprotocol/graph-ts": "^0.35.1"
+  },
+  "devDependencies": {
+    "matchstick-as": "^0.6.0"
+  },
+  "keywords": [
+    "the-graph",
+    "subgraph",
+    "ethereum",
+    "escrow",
+    "payments",
+    "analytics"
+  ],
+  "author": "ETH API Payments Team",
+  "license": "MIT"
+}
