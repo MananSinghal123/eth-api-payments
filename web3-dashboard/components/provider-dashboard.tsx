@@ -1,20 +1,43 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
-import { Download, FileCheck, TrendingUp, DollarSign, Activity, Clock, Shield } from "lucide-react"
-
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
+import {
+  Download,
+  FileCheck,
+  TrendingUp,
+  DollarSign,
+  Activity,
+  Clock,
+  Shield,
+} from "lucide-react";
 export function ProviderDashboard() {
-  const [totalEarned, setTotalEarned] = useState(4567.89)
-  const [availableToWithdraw, setAvailableToWithdraw] = useState(1234.56)
+  const [totalEarned, setTotalEarned] = useState(4567.89);
+  const [availableToWithdraw, setAvailableToWithdraw] = useState(1234.56);
 
   const handleWithdraw = () => {
-    setTotalEarned((prev) => prev + availableToWithdraw)
-    setAvailableToWithdraw(0)
-  }
+    setTotalEarned((prev) => prev + availableToWithdraw);
+    setAvailableToWithdraw(0);
+  };
 
   const batchProofs = [
     {
@@ -57,7 +80,7 @@ export function ProviderDashboard() {
       status: "verified",
       proofHash: "0xo5p6q7r8s9t0u1v2w3x4",
     },
-  ]
+  ];
 
   const apiCallsData = [
     { time: "00:00", calls: 120 },
@@ -66,7 +89,7 @@ export function ProviderDashboard() {
     { time: "12:00", calls: 378 },
     { time: "16:00", calls: 456 },
     { time: "20:00", calls: 334 },
-  ]
+  ];
 
   const revenueData = [
     { batch: "B1", revenue: 156.78 },
@@ -75,7 +98,7 @@ export function ProviderDashboard() {
     { batch: "B4", revenue: 89.23 },
     { batch: "B5", revenue: 145.89 },
     { batch: "B6", revenue: 178.34 },
-  ]
+  ];
 
   return (
     <div className="min-h-screen bg-background font-sans">
@@ -101,7 +124,9 @@ export function ProviderDashboard() {
               <Shield className="h-8 w-8 text-chart-1" />
             </div>
           </div>
-          <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight">Provider Dashboard</h1>
+          <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight">
+            Provider Dashboard
+          </h1>
           <p className="text-base text-muted-foreground max-w-xl mx-auto">
             Monitor API revenue, batch settlements, and real-time analytics
           </p>
@@ -116,19 +141,27 @@ export function ProviderDashboard() {
                 </div>
                 Total Earnings
               </CardTitle>
-              <CardDescription className="text-sm text-muted-foreground">Cumulative revenue from API settlements</CardDescription>
+              <CardDescription className="text-sm text-muted-foreground">
+                Cumulative revenue from API settlements
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-2 border-b border-border pb-4">
-                <div className="text-4xl font-extrabold text-chart-1">${totalEarned.toFixed(2)}</div>
+                <div className="text-4xl font-extrabold text-chart-1">
+                  ${totalEarned.toFixed(2)}
+                </div>
                 <div className="text-sm text-muted-foreground">USDC earned</div>
               </div>
 
               <div className="p-4 rounded-xl bg-background/50 border border-border">
                 <div className="flex items-center justify-between">
                   <div className="space-y-1">
-                    <div className="text-sm text-muted-foreground">Available to Withdraw</div>
-                    <div className="text-2xl font-bold text-chart-1">${availableToWithdraw.toFixed(2)}</div>
+                    <div className="text-sm text-muted-foreground">
+                      Available to Withdraw
+                    </div>
+                    <div className="text-2xl font-bold text-chart-1">
+                      ${availableToWithdraw.toFixed(2)}
+                    </div>
                   </div>
                   <Button
                     onClick={handleWithdraw}
@@ -153,7 +186,9 @@ export function ProviderDashboard() {
                   </div>
                   <div>
                     <div className="text-xl font-bold">5,474</div>
-                    <div className="text-xs text-muted-foreground">API Calls Today</div>
+                    <div className="text-xs text-muted-foreground">
+                      API Calls Today
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -167,7 +202,9 @@ export function ProviderDashboard() {
                   </div>
                   <div>
                     <div className="text-xl font-bold">12</div>
-                    <div className="text-xs text-muted-foreground">Batches Processed</div>
+                    <div className="text-xs text-muted-foreground">
+                      Batches Processed
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -184,12 +221,21 @@ export function ProviderDashboard() {
                 </div>
                 API Calls Over Time
               </CardTitle>
-              <CardDescription className="text-sm text-muted-foreground">24-hour activity overview</CardDescription>
+              <CardDescription className="text-sm text-muted-foreground">
+                24-hour activity overview
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={250}>
-                <LineChart data={apiCallsData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#4b5563" opacity={0.3} />
+                <LineChart
+                  data={apiCallsData}
+                  margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="#4b5563"
+                    opacity={0.3}
+                  />
                   <XAxis
                     dataKey="time"
                     stroke="#9ca3af"
@@ -197,7 +243,12 @@ export function ProviderDashboard() {
                     tickLine={false}
                     axisLine={false}
                   />
-                  <YAxis stroke="#9ca3af" fontSize={12} tickLine={false} axisLine={false} />
+                  <YAxis
+                    stroke="#9ca3af"
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
+                  />
                   <Tooltip
                     contentStyle={{
                       backgroundColor: "#1f2937",
@@ -227,12 +278,21 @@ export function ProviderDashboard() {
                 </div>
                 Revenue Per Batch
               </CardTitle>
-              <CardDescription className="text-sm text-muted-foreground">Latest batch settlements</CardDescription>
+              <CardDescription className="text-sm text-muted-foreground">
+                Latest batch settlements
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={revenueData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#4b5563" opacity={0.3} />
+                <BarChart
+                  data={revenueData}
+                  margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="#4b5563"
+                    opacity={0.3}
+                  />
                   <XAxis
                     dataKey="batch"
                     stroke="#9ca3af"
@@ -240,7 +300,12 @@ export function ProviderDashboard() {
                     tickLine={false}
                     axisLine={false}
                   />
-                  <YAxis stroke="#9ca3af" fontSize={12} tickLine={false} axisLine={false} />
+                  <YAxis
+                    stroke="#9ca3af"
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
+                  />
                   <Tooltip
                     contentStyle={{
                       backgroundColor: "#1f2937",
@@ -249,7 +314,12 @@ export function ProviderDashboard() {
                       color: "#f9fafb",
                     }}
                   />
-                  <Bar dataKey="revenue" fill="#3b82f6" radius={[8, 8, 0, 0]} opacity={0.9} />
+                  <Bar
+                    dataKey="revenue"
+                    fill="#3b82f6"
+                    radius={[8, 8, 0, 0]}
+                    opacity={0.9}
+                  />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
@@ -277,7 +347,9 @@ export function ProviderDashboard() {
                 >
                   <div className="flex-1 space-y-2">
                     <div className="flex items-center gap-3">
-                      <code className="text-sm font-mono bg-muted px-2 py-1 rounded-md">{batch.id}</code>
+                      <code className="text-sm font-mono bg-muted px-2 py-1 rounded-md">
+                        {batch.id}
+                      </code>
                       <Badge
                         variant="secondary"
                         className={
@@ -294,12 +366,18 @@ export function ProviderDashboard() {
                         <Clock className="h-3 w-3" />
                         {batch.timestamp}
                       </span>
-                      <span className="text-sm">{batch.callsProcessed.toLocaleString()} calls</span>
-                      <span className="text-sm font-mono">Hash: {batch.proofHash}</span>
+                      <span className="text-sm">
+                        {batch.callsProcessed.toLocaleString()} calls
+                      </span>
+                      <span className="text-sm font-mono">
+                        Hash: {batch.proofHash}
+                      </span>
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="font-bold text-lg text-chart-1">${batch.revenue.toFixed(2)}</div>
+                    <div className="font-bold text-lg text-chart-1">
+                      ${batch.revenue.toFixed(2)}
+                    </div>
                     <div className="text-xs text-muted-foreground">Revenue</div>
                   </div>
                 </div>
@@ -309,5 +387,5 @@ export function ProviderDashboard() {
         </Card>
       </div>
     </div>
-  )
+  );
 }
