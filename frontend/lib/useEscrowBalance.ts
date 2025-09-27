@@ -1,51 +1,56 @@
-import { useReadContract } from 'wagmi'
-import { polygonAmoy } from 'wagmi/chains'
-import { formatUnits } from 'viem'
+import { useReadContract } from "wagmi";
+import { sepolia } from "wagmi/chains";
+import { formatUnits } from "viem";
 
-const ESCROW_ADDRESS = "0xAC6a80da31d9D32f453332A9d6184c8b2376430E" as const // Replace with your actual escrow contract address
+const ESCROW_ADDRESS = "0xe73922a448d76756babc9126f4401101cbfb4fbc" as const; // New escrow contract address on Sepolia
 
 const ESCROW_ABI = [
   {
     inputs: [{ name: "user", type: "address" }],
-    name: "getBalance",
+    name: "getUserBalanceUSD",
     outputs: [{ name: "", type: "uint256" }],
     stateMutability: "view",
-    type: "function"
+    type: "function",
   },
   {
-    inputs: [],
-    name: "totalEscrowed",
+    inputs: [{ name: "provider", type: "address" }],
+    name: "getProviderBalance",
     outputs: [{ name: "", type: "uint256" }],
     stateMutability: "view",
-    type: "function"
-  }
-] as const
+    type: "function",
+  },
+] as const;
 
 /**
  * Custom hook to fetch user's escrow balance
  */
-export const useEscrowBalance = (userAddress: `0x${string}` | undefined, enabled: boolean = true) => {
-  const { 
-    data: rawBalance, 
-    isLoading, 
-    isError, 
+export const useEscrowBalance = (
+  userAddress: `0x${string}` | undefined,
+  enabled: boolean = true
+) => {
+  const {
+    data: rawBalance,
+    isLoading,
+    isError,
     error,
-    refetch 
+    refetch,
   } = useReadContract({
     address: ESCROW_ADDRESS,
     abi: ESCROW_ABI,
-    functionName: 'getBalance',
+    functionName: "getUserBalanceUSD",
     args: userAddress ? [userAddress] : undefined,
-    chainId: polygonAmoy.id,
-    query: { 
+    chainId: sepolia.id,
+    query: {
       enabled: !!userAddress && enabled,
       refetchInterval: 10000, // Refetch every 10 seconds
     },
-  })
+  });
 
-  // Format the balance for display
-  const formattedBalance = rawBalance ? formatUnits(rawBalance as bigint, 6) : '0'
-  const balanceAsNumber = parseFloat(formattedBalance)
+  // Format the balance for display (amount is in cents, so divide by 100)
+  const formattedBalance = rawBalance
+    ? (Number(formatUnits(rawBalance as bigint, 0)) / 100).toString()
+    : "0";
+  const balanceAsNumber = parseFloat(formattedBalance);
 
   return {
     rawBalance: rawBalance as bigint | undefined,
@@ -55,40 +60,49 @@ export const useEscrowBalance = (userAddress: `0x${string}` | undefined, enabled
     isError,
     error,
     refetch,
-    hasBalance: balanceAsNumber > 0
-  }
-}
+    hasBalance: balanceAsNumber > 0,
+  };
+};
 
 /**
- * Custom hook to fetch total escrow contract balance
+ * Custom hook to fetch provider balance
  */
-export const useTotalEscrowBalance = (enabled: boolean = true) => {
-  const { 
-    data: totalEscrowed, 
-    isLoading, 
-    isError, 
-    error,
-    refetch 
-  } = useReadContract({
-    address: ESCROW_ADDRESS,
-    abi: ESCROW_ABI,
-    functionName: 'totalEscrowed',
-    chainId: polygonAmoy.id,
-    query: { 
-      enabled: enabled,
-      refetchInterval: 15000,
-    },
-  })
-
-  const formattedTotal = totalEscrowed ? formatUnits(totalEscrowed as bigint, 6) : '0'
-
-  return {
-    totalEscrowed: totalEscrowed as bigint | undefined,
-    formattedTotal,
-    totalAsNumber: parseFloat(formattedTotal),
+export const useProviderBalance = (
+  providerAddress: `0x${string}` | undefined,
+  enabled: boolean = true
+) => {
+  const {
+    data: rawBalance,
     isLoading,
     isError,
     error,
-    refetch
-  }
-}
+    refetch,
+  } = useReadContract({
+    address: ESCROW_ADDRESS,
+    abi: ESCROW_ABI,
+    functionName: "getProviderBalance",
+    args: providerAddress ? [providerAddress] : undefined,
+    chainId: sepolia.id,
+    query: {
+      enabled: !!providerAddress && enabled,
+      refetchInterval: 15000,
+    },
+  });
+
+  // Format the balance for display (amount is in cents, so divide by 100)
+  const formattedBalance = rawBalance
+    ? (Number(formatUnits(rawBalance as bigint, 0)) / 100).toString()
+    : "0";
+  const balanceAsNumber = parseFloat(formattedBalance);
+
+  return {
+    rawBalance: rawBalance as bigint | undefined,
+    formattedBalance,
+    balanceAsNumber,
+    isLoading,
+    isError,
+    error,
+    refetch,
+    hasBalance: balanceAsNumber > 0,
+  };
+};

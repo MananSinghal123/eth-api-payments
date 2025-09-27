@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useChainId, useSwitchChain } from "wagmi";
-import { polygonAmoy } from "wagmi/chains";
+import { sepolia } from "wagmi/chains";
 import { Network, AlertTriangle, CheckCircle, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,43 +11,48 @@ export default function NetworkSwitcher() {
   const chainId = useChainId();
   const { switchChain, isPending } = useSwitchChain();
 
-  const isAmoyChain = chainId === polygonAmoy.id;
+  const isSepoliaChain = chainId === sepolia.id;
 
-  const handleSwitchToAmoy = () => {
-    switchChain({ chainId: polygonAmoy.id });
+  const handleSwitchToSepolia = () => {
+    switchChain({ chainId: sepolia.id });
   };
 
-  const addAmoyNetwork = async () => {
-    if (typeof window !== 'undefined' && window.ethereum) {
+  const addSepoliaNetwork = async () => {
+    if (typeof window !== "undefined" && window.ethereum) {
       try {
         await window.ethereum.request({
-          method: 'wallet_addEthereumChain',
-          params: [{
-            chainId: '0x13882', // 80002 in hex
-            chainName: 'Polygon Amoy Testnet',
-            nativeCurrency: {
-              name: 'MATIC',
-              symbol: 'MATIC',
-              decimals: 18,
+          method: "wallet_addEthereumChain",
+          params: [
+            {
+              chainId: "0xaa36a7", // 11155111 in hex
+              chainName: "Sepolia Testnet",
+              nativeCurrency: {
+                name: "ETH",
+                symbol: "ETH",
+                decimals: 18,
+              },
+              rpcUrls: ["https://rpc.sepolia.org"],
+              blockExplorerUrls: ["https://sepolia.etherscan.io"],
             },
-            rpcUrls: ['https://rpc-amoy.polygon.technology/'],
-            blockExplorerUrls: ['https://amoy.polygonscan.com/'],
-          }],
+          ],
         });
         // After adding, try to switch to it
-        handleSwitchToAmoy();
+        handleSwitchToSepolia();
       } catch (error) {
-        console.error('Failed to add Polygon Amoy network:', error);
+        console.error("Failed to add Sepolia network:", error);
       }
     }
   };
 
-  if (isAmoyChain) {
+  if (isSepoliaChain) {
     return (
-      <Badge variant="secondary" className="bg-green-500/10 text-green-400 border-green-500/20 px-3 py-2">
+      <Badge
+        variant="secondary"
+        className="bg-green-500/10 text-green-400 border-green-500/20 px-3 py-2"
+      >
         <div className="flex items-center space-x-2">
           <CheckCircle className="w-4 h-4" />
-          <span className="font-medium">Polygon Amoy</span>
+          <span className="font-medium">Sepolia</span>
           <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
         </div>
       </Badge>
@@ -56,18 +61,19 @@ export default function NetworkSwitcher() {
 
   return (
     <div className="flex items-center space-x-2">
-      <Badge variant="secondary" className="bg-amber-500/10 text-amber-400 border-amber-500/20 px-3 py-2">
+      <Badge
+        variant="secondary"
+        className="bg-amber-500/10 text-amber-400 border-amber-500/20 px-3 py-2"
+      >
         <div className="flex items-center space-x-2">
           <AlertTriangle className="w-4 h-4" />
-          <span className="font-medium">
-            Wrong Network
-          </span>
+          <span className="font-medium">Wrong Network</span>
         </div>
       </Badge>
-      
+
       <div className="flex items-center space-x-1">
         <Button
-          onClick={handleSwitchToAmoy}
+          onClick={handleSwitchToSepolia}
           disabled={isPending}
           size="sm"
           className="bg-blue-600 hover:bg-blue-700 text-white border-0"
@@ -84,9 +90,9 @@ export default function NetworkSwitcher() {
             </div>
           )}
         </Button>
-        
+
         <Button
-          onClick={addAmoyNetwork}
+          onClick={addSepoliaNetwork}
           size="sm"
           variant="outline"
           className="border-gray-700/50 text-gray-300 hover:bg-gray-800/50 hover:text-white"

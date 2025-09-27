@@ -1,41 +1,40 @@
-"use client"
+"use client";
 
-import type React from "react"
-import { useState } from "react"
-import { useAccount, useChainId } from "wagmi"
-import { 
-  Terminal, 
-  Bot, 
-  TrendingUp, 
-  Shield, 
-  Zap, 
+import type React from "react";
+import { useState } from "react";
+import { useAccount, useChainId } from "wagmi";
+import {
+  Terminal,
+  Bot,
+  TrendingUp,
+  Shield,
+  Zap,
   Network,
   Cpu,
   Eye,
   Activity,
-  ChevronRight
-} from "lucide-react"
-import WalletConnector from "@/lib/walletConnector"
-import PYUSDBalanceCard from "@/components/PYUSDBalanceCard"
-import BridgeComponent from "@/components/BridgeComponent"
-import NetworkSwitcher from "@/components/NetworkSwitcher"
-import EscrowDashboard from "@/components/EscrowDashboard"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
+  ChevronRight,
+} from "lucide-react";
+import WalletConnector from "@/lib/walletConnector";
+import PYUSDBalanceCard from "@/components/PYUSDBalanceCard";
+import NetworkSwitcher from "@/components/NetworkSwitcher";
+import EscrowDashboard from "@/components/EscrowDashboard";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 
 // Define the chain details
-const POLYGON_AMOY_CHAIN_ID = 80002
-const SEPOLIA_CHAIN_ID = 11155111
+const SEPOLIA_CHAIN_ID = 11155111;
 
 export default function Dashboard(): React.ReactElement {
-  const { address, isConnected } = useAccount()
-  const chainId = useChainId()
-  const isAmoyChain = chainId === POLYGON_AMOY_CHAIN_ID
-  const isSepoliaChain = chainId === SEPOLIA_CHAIN_ID
-  const isCorrectChain = isAmoyChain || isSepoliaChain
+  const { address, isConnected } = useAccount();
+  const chainId = useChainId();
+  const isSepoliaChain = chainId === SEPOLIA_CHAIN_ID;
+  const isCorrectChain = isSepoliaChain;
 
-  const [activeSection, setActiveSection] = useState<'overview' | 'bridge' | 'escrow'>('overview')
+  const [activeSection, setActiveSection] = useState<"overview" | "escrow">(
+    "overview"
+  );
 
   return (
     <div className="min-h-screen bg-black relative overflow-hidden">
@@ -68,13 +67,17 @@ export default function Dashboard(): React.ReactElement {
                     ZK Neural Gateway
                   </h1>
                   <p className="text-gray-400 text-sm font-medium">
-                    Autonomous AI agent payments • Zero-knowledge verification • Cross-chain intelligence
+                    Autonomous AI agent payments • Zero-knowledge verification •
+                    Smart escrow system
                   </p>
                 </div>
               </div>
-              
+
               <div className="flex items-center space-x-3">
-                <Badge variant="secondary" className="bg-green-500/10 text-green-400 border-green-500/20">
+                <Badge
+                  variant="secondary"
+                  className="bg-green-500/10 text-green-400 border-green-500/20"
+                >
                   <Activity className="w-3 h-3 mr-1" />
                   Neural Active
                 </Badge>
@@ -93,7 +96,9 @@ export default function Dashboard(): React.ReactElement {
                 <div className="flex items-center space-x-2">
                   <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
                   <span className="text-gray-400">System Status: </span>
-                  <span className="text-green-400 font-medium">Operational</span>
+                  <span className="text-green-400 font-medium">
+                    Operational
+                  </span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Cpu className="w-4 h-4 text-blue-400" />
@@ -123,17 +128,16 @@ export default function Dashboard(): React.ReactElement {
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex space-x-1 bg-gray-900/50 p-1 rounded-xl border border-gray-800/50 backdrop-blur-sm">
             {[
-              { id: 'overview', label: 'Neural Overview', icon: Terminal },
-              { id: 'bridge', label: 'Cross-Chain Bridge', icon: Network },
-              { id: 'escrow', label: 'Smart Escrow', icon: Shield }
+              { id: "overview", label: "Neural Overview", icon: Terminal },
+              { id: "escrow", label: "Smart Escrow", icon: Shield },
             ].map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveSection(tab.id as any)}
                 className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all duration-200 ${
                   activeSection === tab.id
-                    ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+                    ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg"
+                    : "text-gray-400 hover:text-white hover:bg-gray-800/50"
                 }`}
               >
                 <tab.icon className="w-4 h-4" />
@@ -154,9 +158,12 @@ export default function Dashboard(): React.ReactElement {
                     <Terminal className="w-5 h-5 text-amber-400" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-amber-300">Neural Network Mismatch</h3>
+                    <h3 className="text-lg font-semibold text-amber-300">
+                      Neural Network Mismatch
+                    </h3>
                     <p className="text-amber-200">
-                      Your agent is connected to an unsupported network. Please switch to Sepolia or Polygon Amoy to enable AI operations.
+                      Your agent is connected to an unsupported network. Please
+                      switch to Sepolia to enable AI operations.
                     </p>
                   </div>
                 </div>
@@ -165,7 +172,7 @@ export default function Dashboard(): React.ReactElement {
           )}
 
           {/* Overview Section */}
-          {activeSection === 'overview' && (
+          {activeSection === "overview" && (
             <div className="space-y-6">
               {/* Stats Cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -184,19 +191,27 @@ export default function Dashboard(): React.ReactElement {
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-green-400">98.7%</div>
+                      <div className="text-2xl font-bold text-green-400">
+                        98.7%
+                      </div>
                       <div className="text-sm text-gray-400">Uptime</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-blue-400">1,247</div>
+                      <div className="text-2xl font-bold text-blue-400">
+                        1,247
+                      </div>
                       <div className="text-sm text-gray-400">API Calls</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-purple-400">42ms</div>
+                      <div className="text-2xl font-bold text-purple-400">
+                        42ms
+                      </div>
                       <div className="text-sm text-gray-400">Avg Response</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-cyan-400">256</div>
+                      <div className="text-2xl font-bold text-cyan-400">
+                        256
+                      </div>
                       <div className="text-sm text-gray-400">ZK Proofs</div>
                     </div>
                   </div>
@@ -214,21 +229,49 @@ export default function Dashboard(): React.ReactElement {
                 <CardContent>
                   <div className="space-y-4">
                     {[
-                      { time: '2 min ago', action: 'ZK proof generated for API call', status: 'success' },
-                      { time: '5 min ago', action: 'Cross-chain bridge initiated', status: 'pending' },
-                      { time: '12 min ago', action: 'Escrow deposit confirmed', status: 'success' },
-                      { time: '18 min ago', action: 'Neural network calibration', status: 'success' }
+                      {
+                        time: "2 min ago",
+                        action: "ZK proof generated for API call",
+                        status: "success",
+                      },
+                      {
+                        time: "5 min ago",
+                        action: "Cross-chain bridge initiated",
+                        status: "pending",
+                      },
+                      {
+                        time: "12 min ago",
+                        action: "Escrow deposit confirmed",
+                        status: "success",
+                      },
+                      {
+                        time: "18 min ago",
+                        action: "Neural network calibration",
+                        status: "success",
+                      },
                     ].map((activity, i) => (
-                      <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-gray-800/30 border border-gray-700/50">
+                      <div
+                        key={i}
+                        className="flex items-center justify-between p-3 rounded-lg bg-gray-800/30 border border-gray-700/50"
+                      >
                         <div className="flex items-center space-x-3">
-                          <div className={`w-2 h-2 rounded-full ${
-                            activity.status === 'success' ? 'bg-green-400' : 
-                            activity.status === 'pending' ? 'bg-yellow-400 animate-pulse' : 'bg-red-400'
-                          }`} />
-                          <span className="text-gray-300">{activity.action}</span>
+                          <div
+                            className={`w-2 h-2 rounded-full ${
+                              activity.status === "success"
+                                ? "bg-green-400"
+                                : activity.status === "pending"
+                                ? "bg-yellow-400 animate-pulse"
+                                : "bg-red-400"
+                            }`}
+                          />
+                          <span className="text-gray-300">
+                            {activity.action}
+                          </span>
                         </div>
                         <div className="flex items-center space-x-2">
-                          <span className="text-sm text-gray-500">{activity.time}</span>
+                          <span className="text-sm text-gray-500">
+                            {activity.time}
+                          </span>
                           <ChevronRight className="w-4 h-4 text-gray-600" />
                         </div>
                       </div>
@@ -239,15 +282,8 @@ export default function Dashboard(): React.ReactElement {
             </div>
           )}
 
-          {/* Bridge Section */}
-          {activeSection === 'bridge' && (
-            <div className="space-y-6">
-              <BridgeComponent />
-            </div>
-          )}
-
           {/* Escrow Section */}
-          {activeSection === 'escrow' && (
+          {activeSection === "escrow" && (
             <div className="space-y-6">
               <EscrowDashboard />
             </div>
@@ -255,6 +291,5 @@ export default function Dashboard(): React.ReactElement {
         </div>
       </div>
     </div>
-  )
+  );
 }
-
