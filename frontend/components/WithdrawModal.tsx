@@ -2,15 +2,16 @@ import React from "react"
 import { Loader2 } from "lucide-react"
 import { useAccount, useChainId, useWriteContract, useWaitForTransactionReceipt } from "wagmi"
 import { parseUnits, formatUnits } from "viem"
-import { polygonAmoy } from "wagmi/chains"
+import { sepolia } from "wagmi/chains"
 import { useEscrowBalance } from "../lib/useEscrowBalance"
+import { contractConfig } from "../lib/config"
 
-// Contract addresses and ABIs
-const ESCROW_ADDRESS = "0xAC6a80da31d9D32f453332A9d6184c8b2376430E" as const // Replace with your actual escrow contract address
+// Contract addresses from config
+const ESCROW_ADDRESS = contractConfig.sepolia.escrow.address
 
 const ESCROW_ABI = [
   {
-    inputs: [{ name: "amount", type: "uint256" }],
+    inputs: [{ name: "amountCents", type: "uint256" }],
     name: "withdraw",
     outputs: [],
     stateMutability: "nonpayable",
@@ -43,7 +44,7 @@ const WithdrawModal: React.FC<WithdrawModalProps> = ({
   const [error, setError] = React.useState<string>('')
   const [isWithdrawAll, setIsWithdrawAll] = React.useState<boolean>(false)
   
-  const isAmoyChain = chainId === polygonAmoy.id
+  const isSepoliaChain = chainId === sepolia.id
 
   // Get user's escrow balance
   const {
@@ -52,8 +53,9 @@ const WithdrawModal: React.FC<WithdrawModalProps> = ({
     balanceAsNumber,
     isLoading: isBalanceLoading,
     isError: isBalanceError,
-    refetch: refetchBalance
-  } = useEscrowBalance(address, isConnected && isAmoyChain && isOpen)
+    refetch: refetchBalance,
+    hasBalance
+  } = useEscrowBalance(address, isConnected && isSepoliaChain)
 
   // Contract write hooks
   const { 
@@ -110,7 +112,7 @@ const WithdrawModal: React.FC<WithdrawModalProps> = ({
   }
 
   const handleWithdraw = async () => {
-    if (!address || !isAmoyChain) return
+    if (!address || !isSepoliaChain) return
 
     // Validate amounts
     if (isWithdrawAll) {
@@ -139,17 +141,19 @@ const WithdrawModal: React.FC<WithdrawModalProps> = ({
           address: ESCROW_ADDRESS,
           abi: ESCROW_ABI,
           functionName: 'withdrawAll',
-          chainId: polygonAmoy.id,
+          chainId: sepolia.id,
         })
       } else {
-        const amountBig = parseUnits(withdrawAmount, 6) // wPYUSD has 6 decimals
-        console.log('Withdrawing amount:', withdrawAmount, 'Wei:', amountBig.toString())
+        // Convert USD amount to cents for withdrawal
+        const amountCents = Math.round(parseFloat(withdrawAmount) * 100)
+        const amountBig = BigInt(amountCents)
+        console.log('Withdrawing amount:', withdrawAmount, 'Cents:', amountBig.toString())
         withdrawFromEscrow({
           address: ESCROW_ADDRESS,
           abi: ESCROW_ABI,
           functionName: 'withdraw',
           args: [amountBig],
-          chainId: polygonAmoy.id,
+          chainId: sepolia.id,
         })
       }
     } catch (err: any) {
@@ -191,7 +195,7 @@ const WithdrawModal: React.FC<WithdrawModalProps> = ({
 
   const isPending = isWithdrawPending
   const isConfirming = isWithdrawConfirming
-  const isFormDisabled = isPending || isConfirming || !isAmoyChain || !isConnected
+  const isFormDisabled = isPending || isConfirming || !isSepoliaChain || !isConnected
 
   if (!isOpen) return null
 
@@ -209,13 +213,13 @@ const WithdrawModal: React.FC<WithdrawModalProps> = ({
           </div>
         )}
         
-        {isConnected && !isAmoyChain && (
+        {isConnected && !isSepoliaChain && (
           <div className="mb-6 p-4 bg-amber-900/20 border border-amber-500/30 rounded-xl">
             <p className="text-amber-400 text-sm font-medium">
-              Please switch to Polygon Amoy network to withdraw
+              Please switch to Sepolia network to withdraw PYUSD
             </p>
             <p className="text-amber-300 text-xs mt-1">
-              Current: Chain ID {chainId} | Expected: Chain ID {polygonAmoy.id}
+              Current: Chain ID {chainId} | Expected: Chain ID {sepolia.id}
             </p>
           </div>
         )}
@@ -244,8 +248,8 @@ const WithdrawModal: React.FC<WithdrawModalProps> = ({
           <div className="p-4 bg-slate-700/30 rounded-xl border border-slate-600/50">
             <p className="text-sm text-slate-400 mb-1">Available Balance</p>
             <p className="text-2xl font-bold text-white">
-              {!isConnected || !isAmoyChain ? (
-                <span className="text-slate-500 text-lg">Connect to Amoy</span>
+              {!isConnected || !isSepoliaChain ? (
+                <span className="text-slate-500 text-lg">Connect to Sepolia</span>
               ) : isBalanceLoading ? (
                 <div className="flex items-center">
                   <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
@@ -262,7 +266,7 @@ const WithdrawModal: React.FC<WithdrawModalProps> = ({
           </div>
 
           {/* Withdraw All Toggle */}
-          {isConnected && isAmoyChain && !isBalanceError && balanceAsNumber > 0 && (
+          {isConnected && isSepoliaChain && !isBalanceError && balanceAsNumber > 0 && (
             <div className="flex items-center space-x-3">
               <input
                 type="checkbox"
@@ -282,7 +286,7 @@ const WithdrawModal: React.FC<WithdrawModalProps> = ({
           {!isWithdrawAll && (
             <div>
               <label className="block text-sm font-semibold text-slate-300 mb-3 uppercase tracking-wider">
-                Amount to Withdraw (wPYUSD)
+                Amount to Withdraw (PYUSD)
               </label>
               <div className="relative">
                 <input

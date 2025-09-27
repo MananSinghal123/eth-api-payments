@@ -32,7 +32,7 @@ import { useEscrowBalance } from "../lib/useEscrowBalance";
 // Contract addresses and ABIs
 const PYUSD_SEPOLIA_ADDRESS =
   "0xCaC524BcA292aaade2DF8A05cC58F0a65B1B3bB9" as const;
-const ESCROW_ADDRESS = "0xe73922a448d76756babc9126f4401101cbfb4fbc" as const;
+const ESCROW_ADDRESS = "0xe73922A448D76756bAbC9126f4401101cbFB4FBc" as const;
 
 const ERC20_ABI = [
   {
