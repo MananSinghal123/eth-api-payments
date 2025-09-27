@@ -1,0 +1,23 @@
+version: "0.1"
+
+substreams:
+  - name: eth_payments
+    module: "src/index.ts"
+    type: "eth"
+    description: "Substream integration for Ethereum payments"
+    schema: "proto/eth_payments.proto"
+    handlers:
+      - PaymentHandler
+      - MetricsHandler
+    network:
+      id: "1"  # Mainnet
+      rpc_url: "https://mainnet.infura.io/v3/YOUR_INFURA_PROJECT_ID"
+    api:
+      endpoint: "https://api.your-substream-service.com"
+      api_key: "YOUR_API_KEY"
+    options:
+      batch_size: 100
+      retry_attempts: 3
+      timeout: 5000  # in milliseconds
+
+# Additional substreams can be added here as needed.
