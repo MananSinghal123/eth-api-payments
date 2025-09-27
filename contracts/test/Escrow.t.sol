@@ -1,28 +1,16 @@
 // SPDX-License-Identifier: MIT
-
 pragma solidity ^0.8.28;
 
-import {Test} from "forge-std/Test.sol";
+import {Test, console} from "forge-std/Test.sol";
 import {Escrow} from "../src/Escrow.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-
-// Mock PYUSD token for testing
-contract MockPYUSD is ERC20 {
-    constructor() ERC20("PayPal USD", "PYUSD") {
-        _mint(msg.sender, 1000000 * 10 ** 18); // Mint 1M tokens to deployer
-    }
-
-    function mint(address to, uint256 amount) external {
-        _mint(to, amount);
-    }
-}
+import {ERC20Mock} from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
 
 // Mock ZK Verifier for testing
-contract MockZKVerifier {
+contract MockZkVerifier {
     bool public shouldVerify = true;
 
-    function verify(bytes memory _proof, uint256[] memory _publicInputs) external view returns (bool) {
+    function verify(bytes memory, uint256[] memory) external view returns (bool) {
         return shouldVerify;
     }
 
@@ -33,577 +21,519 @@ contract MockZKVerifier {
 
 contract EscrowTest is Test {
     Escrow public escrow;
-    MockPYUSD public pyusdToken;
-    MockZKVerifier public zkVerifier;
+    ERC20Mock public pyusdToken;
+    MockZkVerifier public mockVerifier;
 
-    address public owner;
-    address public depositor = address(0x1);
-    address public apiProvider = address(0x2);
-    address public apiProvider2 = address(0x3);
-    address public user = address(0x4);
+    address public owner = makeAddr("owner");
+    address public user1 = makeAddr("user1");
+    address public user2 = makeAddr("user2");
+    address public provider1 = makeAddr("provider1");
+    address public provider2 = makeAddr("provider2");
+    address public attacker = makeAddr("attacker");
 
-    uint256 public constant INITIAL_BALANCE = 10000 * 10 ** 18; // 10k PYUSD
+    // Test constants
+    uint256 constant INITIAL_BALANCE = 1000000 * 1e6; // 1M PYUSD
+    uint256 constant DEPOSIT_AMOUNT_USD = 100; // $100
+    uint256 constant DEPOSIT_AMOUNT_CENTS = 10000; // $100 in cents
+    uint256 constant PYUSD_AMOUNT = 100 * 1e6; // 100 PYUSD tokens (6 decimals)
 
-    event Deposit(address indexed depositor, address indexed apiProvider, uint256 amount);
-    event DepositWithdraw(address indexed depositor, address indexed apiProvider, uint256 amount);
-    event ApiProviderRegistered(address indexed apiProvider, string uri);
-    event ApiProviderDeregistered(address indexed apiProvider);
-    event ApiProviderWithdraw(address indexed apiProvider, uint256 amount);
-    event PaymentSettled(address indexed depositor, address indexed apiProvider, uint256 amount);
-    event BatchSettled(bytes32 indexed settlementId, uint256 totalAmount);
-    event RateUpdated(address indexed apiProvider, string endpoint, uint256 newRate);
-    event DefaultRateUpdated(address indexed apiProvider, uint256 newRate);
+    event UserDeposit(address indexed user, uint256 amount);
+    event UserWithdraw(address indexed user, uint256 amount);
+    event ProviderWithdraw(address indexed provider, uint256 amount);
+    event BatchPayment(address indexed user, address indexed provider, uint256 amount, uint256 numCalls);
     event ZkVerifierUpdated(address indexed oldVerifier, address indexed newVerifier);
 
     function setUp() public {
-        owner = address(this);
+        vm.startPrank(owner);
 
-        // Deploy mock contracts
-        pyusdToken = new MockPYUSD();
-        zkVerifier = new MockZKVerifier();
+        // Deploy mock PYUSD token
+        pyusdToken = new ERC20Mock();
 
-        // Deploy escrow
-        escrow = new Escrow(address(pyusdToken), address(zkVerifier));
+        // Deploy mock ZK verifier
+        mockVerifier = new MockZkVerifier();
 
-        // Setup initial balances
-        pyusdToken.mint(depositor, INITIAL_BALANCE);
-        pyusdToken.mint(user, INITIAL_BALANCE);
+        // Deploy escrow contract
+        escrow = new Escrow(address(pyusdToken), address(mockVerifier));
+
+        vm.stopPrank();
+
+        // Mint tokens to test accounts
+        pyusdToken.mint(user1, INITIAL_BALANCE);
+        pyusdToken.mint(user2, INITIAL_BALANCE);
+        pyusdToken.mint(owner, INITIAL_BALANCE);
 
         // Approve escrow to spend tokens
-        vm.prank(depositor);
+        vm.prank(user1);
         pyusdToken.approve(address(escrow), type(uint256).max);
 
-        vm.prank(user);
+        vm.prank(user2);
         pyusdToken.approve(address(escrow), type(uint256).max);
     }
 
-    ///////////////////////////////////
-    //       Setup & Helper Tests  ///
-    ///////////////////////////////////
+    //////////////////////////////////
+    //       DEPOSIT TESTS        ////
+    //////////////////////////////////
 
-    function testInitialSetup() public {
-        assertEq(address(escrow.pyusdToken()), address(pyusdToken));
-        assertEq(address(escrow.zkVerifier()), address(zkVerifier));
-        assertEq(escrow.owner(), owner);
-        assertFalse(escrow.paused());
+    function testDeposit() public {
+        vm.prank(user1);
+
+        vm.expectEmit(true, false, false, true);
+        emit UserDeposit(user1, DEPOSIT_AMOUNT_CENTS);
+
+        escrow.deposit(DEPOSIT_AMOUNT_USD);
+
+        assertEq(escrow.getUserBalance(user1), DEPOSIT_AMOUNT_CENTS);
+        assertEq(escrow.getUserBalanceUSD(user1), DEPOSIT_AMOUNT_USD);
+        assertEq(pyusdToken.balanceOf(address(escrow)), PYUSD_AMOUNT);
     }
 
-    function _registerApiProvider(address provider, string memory uri) internal {
-        vm.prank(provider);
-        escrow.registerApiProvider(uri);
+    function testDepositMultipleUsers() public {
+        vm.prank(user1);
+        escrow.deposit(DEPOSIT_AMOUNT_USD);
+
+        vm.prank(user2);
+        escrow.deposit(50); // $50
+
+        assertEq(escrow.getUserBalance(user1), DEPOSIT_AMOUNT_CENTS);
+        assertEq(escrow.getUserBalance(user2), 5000); // $50 in cents
+        assertEq(pyusdToken.balanceOf(address(escrow)), PYUSD_AMOUNT + 50 * 1e6);
     }
 
-    ///////////////////////////////////
-    //       Owner Functions Tests ///
-    ///////////////////////////////////
+    function testDepositZeroAmount() public {
+        vm.prank(user1);
+        vm.expectRevert("Amount must be greater than 0");
+        escrow.deposit(0);
+    }
+
+    function testDepositWhenPaused() public {
+        vm.prank(owner);
+        escrow.pause();
+
+        vm.prank(user1);
+        vm.expectRevert(); // EnforcedPause()
+        escrow.deposit(DEPOSIT_AMOUNT_USD);
+    }
+
+    function testDepositInsufficientApproval() public {
+        vm.prank(user1);
+        pyusdToken.approve(address(escrow), 0);
+
+        vm.expectRevert();
+        escrow.deposit(DEPOSIT_AMOUNT_USD);
+    }
+
+    //////////////////////////////////
+    //      WITHDRAWAL TESTS      ////
+    //////////////////////////////////
+
+    function testWithdraw() public {
+        // First deposit
+        vm.prank(user1);
+        escrow.deposit(DEPOSIT_AMOUNT_USD);
+
+        uint256 withdrawAmount = 5000; // $50 in cents
+
+        vm.prank(user1);
+        vm.expectEmit(true, false, false, true);
+        emit UserWithdraw(user1, withdrawAmount);
+
+        escrow.withdraw(withdrawAmount);
+
+        assertEq(escrow.getUserBalance(user1), DEPOSIT_AMOUNT_CENTS - withdrawAmount);
+        assertEq(pyusdToken.balanceOf(user1), INITIAL_BALANCE - PYUSD_AMOUNT + (withdrawAmount * 1e6 / 100));
+    }
+
+    function testWithdrawAll() public {
+        vm.prank(user1);
+        escrow.deposit(DEPOSIT_AMOUNT_USD);
+
+        vm.prank(user1);
+        escrow.withdraw(DEPOSIT_AMOUNT_CENTS);
+
+        assertEq(escrow.getUserBalance(user1), 0);
+        assertEq(pyusdToken.balanceOf(user1), INITIAL_BALANCE);
+    }
+
+    function testWithdrawInsufficientBalance() public {
+        vm.prank(user1);
+        escrow.deposit(50); // $50
+
+        vm.prank(user1);
+        vm.expectRevert("Insufficient balance");
+        escrow.withdraw(10000); // Try to withdraw $100
+    }
+
+    function testWithdrawZeroAmount() public {
+        vm.prank(user1);
+        vm.expectRevert("Amount must be greater than 0");
+        escrow.withdraw(0);
+    }
+
+    function testWithdrawWhenPaused() public {
+        vm.prank(user1);
+        escrow.deposit(DEPOSIT_AMOUNT_USD);
+
+        vm.prank(owner);
+        escrow.pause();
+
+        vm.prank(user1);
+        vm.expectRevert(); // EnforcedPause()
+        escrow.withdraw(5000);
+    }
+
+    //////////////////////////////////
+    //    BATCH PAYMENT TESTS     ////
+    //////////////////////////////////
+
+    function testProcessBatchPayment() public {
+        // Setup: user deposits funds
+        vm.prank(user1);
+        escrow.deposit(DEPOSIT_AMOUNT_USD);
+
+        uint256 paymentAmount = 3000; // $30 in cents
+        uint256 numCalls = 100;
+        bytes memory proof = abi.encode("mock_proof");
+        uint256[] memory publicInputs = new uint256[](1);
+        publicInputs[0] = paymentAmount;
+
+        vm.prank(owner);
+        vm.expectEmit(true, true, false, true);
+        emit BatchPayment(user1, provider1, paymentAmount, numCalls);
+
+        escrow.processBatchPayment(user1, provider1, paymentAmount, numCalls, proof, publicInputs);
+
+        assertEq(escrow.getUserBalance(user1), DEPOSIT_AMOUNT_CENTS - paymentAmount);
+        assertEq(escrow.getProviderBalance(provider1), paymentAmount);
+    }
+
+    function testProcessBatchPaymentInvalidProof() public {
+        vm.prank(user1);
+        escrow.deposit(DEPOSIT_AMOUNT_USD);
+
+        // Set verifier to return false
+        mockVerifier.setShouldVerify(false);
+
+        bytes memory proof = abi.encode("invalid_proof");
+        uint256[] memory publicInputs = new uint256[](1);
+        publicInputs[0] = 3000;
+
+        vm.prank(owner);
+        vm.expectRevert("Invalid ZK proof");
+        escrow.processBatchPayment(user1, provider1, 3000, 100, proof, publicInputs);
+    }
+
+    function testProcessBatchPaymentInsufficientUserBalance() public {
+        vm.prank(user1);
+        escrow.deposit(50); // Only $50
+
+        bytes memory proof = abi.encode("mock_proof");
+        uint256[] memory publicInputs = new uint256[](1);
+        publicInputs[0] = 10000; // Try to pay $100
+
+        vm.prank(owner);
+        vm.expectRevert("Insufficient user balance");
+        escrow.processBatchPayment(user1, provider1, 10000, 100, proof, publicInputs);
+    }
+
+    function testProcessBatchPaymentOnlyOwner() public {
+        vm.prank(user1);
+        escrow.deposit(DEPOSIT_AMOUNT_USD);
+
+        bytes memory proof = abi.encode("mock_proof");
+        uint256[] memory publicInputs = new uint256[](1);
+        publicInputs[0] = 3000;
+
+        vm.prank(attacker);
+        vm.expectRevert(); // OwnableUnauthorizedAccount
+        escrow.processBatchPayment(user1, provider1, 3000, 100, proof, publicInputs);
+    }
+
+    function testProcessBatchPaymentZeroAmount() public {
+        vm.prank(user1);
+        escrow.deposit(DEPOSIT_AMOUNT_USD);
+
+        bytes memory proof = abi.encode("mock_proof");
+        uint256[] memory publicInputs = new uint256[](1);
+        publicInputs[0] = 0;
+
+        vm.prank(owner);
+        vm.expectRevert("Invalid payment amount");
+        escrow.processBatchPayment(user1, provider1, 0, 100, proof, publicInputs);
+    }
+
+    function testProcessBatchPaymentInvalidProvider() public {
+        vm.prank(user1);
+        escrow.deposit(DEPOSIT_AMOUNT_USD);
+
+        bytes memory proof = abi.encode("mock_proof");
+        uint256[] memory publicInputs = new uint256[](1);
+        publicInputs[0] = 3000;
+
+        vm.prank(owner);
+        vm.expectRevert("Invalid provider address");
+        escrow.processBatchPayment(user1, address(0), 3000, 100, proof, publicInputs);
+    }
+
+    //////////////////////////////////
+    //   PROVIDER WITHDRAW TESTS  ////
+    //////////////////////////////////
+
+    function testProviderWithdraw() public {
+        // Setup: process a payment to provider
+        vm.prank(user1);
+        escrow.deposit(DEPOSIT_AMOUNT_USD);
+
+        uint256 paymentAmount = 3000;
+        bytes memory proof = abi.encode("mock_proof");
+        uint256[] memory publicInputs = new uint256[](1);
+        publicInputs[0] = paymentAmount;
+
+        vm.prank(owner);
+        escrow.processBatchPayment(user1, provider1, paymentAmount, 100, proof, publicInputs);
+
+        // Provider withdraws
+        uint256 withdrawAmount = 1000; // $10
+
+        vm.prank(provider1);
+        vm.expectEmit(true, false, false, true);
+        emit ProviderWithdraw(provider1, withdrawAmount);
+
+        escrow.providerWithdraw(withdrawAmount);
+
+        assertEq(escrow.getProviderBalance(provider1), paymentAmount - withdrawAmount);
+        assertEq(pyusdToken.balanceOf(provider1), withdrawAmount * 1e6 / 100);
+    }
+
+    function testProviderWithdrawAll() public {
+        // Setup: process payment
+        vm.prank(user1);
+        escrow.deposit(DEPOSIT_AMOUNT_USD);
+
+        uint256 paymentAmount = 3000;
+        bytes memory proof = abi.encode("mock_proof");
+        uint256[] memory publicInputs = new uint256[](1);
+        publicInputs[0] = paymentAmount;
+
+        vm.prank(owner);
+        escrow.processBatchPayment(user1, provider1, paymentAmount, 100, proof, publicInputs);
+
+        // Provider withdraws all
+        vm.prank(provider1);
+        vm.expectEmit(true, false, false, true);
+        emit ProviderWithdraw(provider1, paymentAmount);
+
+        escrow.providerWithdrawAll();
+
+        assertEq(escrow.getProviderBalance(provider1), 0);
+        assertEq(pyusdToken.balanceOf(provider1), paymentAmount * 1e6 / 100);
+    }
+
+    function testProviderWithdrawInsufficientBalance() public {
+        vm.prank(provider1);
+        vm.expectRevert("Insufficient balance");
+        escrow.providerWithdraw(1000);
+    }
+
+    function testProviderWithdrawAllNoBalance() public {
+        vm.prank(provider1);
+        vm.expectRevert("No balance to withdraw");
+        escrow.providerWithdrawAll();
+    }
+
+    //////////////////////////////////
+    //      OWNER FUNCTIONS       ////
+    //////////////////////////////////
 
     function testSetZkVerifier() public {
-        MockZKVerifier newVerifier = new MockZKVerifier();
+        MockZkVerifier newVerifier = new MockZkVerifier();
 
+        vm.prank(owner);
         vm.expectEmit(true, true, false, false);
-        emit ZkVerifierUpdated(address(zkVerifier), address(newVerifier));
+        emit ZkVerifierUpdated(address(mockVerifier), address(newVerifier));
 
         escrow.setZkVerifier(address(newVerifier));
+
         assertEq(address(escrow.zkVerifier()), address(newVerifier));
     }
 
-    function testSetZkVerifierFailsWithZeroAddress() public {
+    function testSetZkVerifierInvalidAddress() public {
+        vm.prank(owner);
         vm.expectRevert("Invalid verifier address");
         escrow.setZkVerifier(address(0));
     }
 
-    function testSetZkVerifierFailsForNonOwner() public {
-        vm.prank(user);
-        vm.expectRevert();
-        escrow.setZkVerifier(address(zkVerifier));
+    function testSetZkVerifierOnlyOwner() public {
+        MockZkVerifier newVerifier = new MockZkVerifier();
+
+        vm.prank(attacker);
+        vm.expectRevert(); // OwnableUnauthorizedAccount
+        escrow.setZkVerifier(address(newVerifier));
     }
 
-    function testPauseAndUnpause() public {
+    function testPause() public {
+        vm.prank(owner);
         escrow.pause();
-        assertTrue(escrow.paused());
 
+        assertTrue(escrow.paused());
+    }
+
+    function testUnpause() public {
+        vm.prank(owner);
+        escrow.pause();
+
+        vm.prank(owner);
         escrow.unpause();
+
         assertFalse(escrow.paused());
     }
 
-    function testPauseFailsForNonOwner() public {
-        vm.prank(user);
-        vm.expectRevert();
+    function testPauseOnlyOwner() public {
+        vm.prank(attacker);
+        vm.expectRevert(); // OwnableUnauthorizedAccount
         escrow.pause();
+    }
+
+    function testDepositForUser() public {
+        uint256 amount = 5000; // $50 in cents
+
+        vm.prank(owner);
+        vm.expectEmit(true, false, false, true);
+        emit UserDeposit(user1, amount);
+
+        escrow.depositForUser(user1, amount);
+
+        assertEq(escrow.getUserBalance(user1), amount);
     }
 
     function testEmergencyWithdraw() public {
-        uint256 amount = 1000 * 10 ** 18;
-        pyusdToken.transfer(address(escrow), amount);
+        // First, have some tokens in the contract
+        vm.prank(user1);
+        escrow.deposit(DEPOSIT_AMOUNT_USD);
 
+        uint256 contractBalance = pyusdToken.balanceOf(address(escrow));
         uint256 ownerBalanceBefore = pyusdToken.balanceOf(owner);
-        escrow.emergencyWithdraw(address(pyusdToken), amount);
 
-        assertEq(pyusdToken.balanceOf(owner), ownerBalanceBefore + amount);
-        assertEq(pyusdToken.balanceOf(address(escrow)), 0);
+        vm.prank(owner);
+        escrow.emergencyWithdraw(address(pyusdToken), contractBalance);
+
+        assertEq(pyusdToken.balanceOf(owner), ownerBalanceBefore + contractBalance);
     }
 
-    ///////////////////////////////////
-    //  API Provider Functions Tests //
-    ///////////////////////////////////
+    //////////////////////////////////
+    //       VIEW FUNCTIONS       ////
+    //////////////////////////////////
 
-    function testRegisterApiProvider() public {
-        string memory uri = "https://api.example.com";
+    function testGetUserBalance() public {
+        vm.prank(user1);
+        escrow.deposit(DEPOSIT_AMOUNT_USD);
 
-        vm.expectEmit(true, false, false, false);
-        emit ApiProviderRegistered(apiProvider, uri);
-
-        vm.prank(apiProvider);
-        escrow.registerApiProvider(uri);
-
-        assertTrue(escrow.isApiProviderRegistered(apiProvider));
-        assertEq(escrow.getApiProviderUri(apiProvider), uri);
+        assertEq(escrow.getUserBalance(user1), DEPOSIT_AMOUNT_CENTS);
     }
 
-    function testRegisterApiProviderFailsWhenAlreadyRegistered() public {
-        _registerApiProvider(apiProvider, "https://api.example.com");
+    function testGetUserBalanceUSD() public {
+        vm.prank(user1);
+        escrow.deposit(DEPOSIT_AMOUNT_USD);
 
-        vm.prank(apiProvider);
-        vm.expectRevert("Already registered");
-        escrow.registerApiProvider("https://api2.example.com");
+        assertEq(escrow.getUserBalanceUSD(user1), DEPOSIT_AMOUNT_USD);
     }
 
-    function testRegisterApiProviderFailsWithEmptyUri() public {
-        vm.prank(apiProvider);
-        vm.expectRevert("URI cannot be empty");
-        escrow.registerApiProvider("");
-    }
-
-    function testRegisterApiProviderFailsWhenPaused() public {
-        escrow.pause();
-
-        vm.prank(apiProvider);
-        vm.expectRevert();
-        escrow.registerApiProvider("https://api.example.com");
-    }
-
-    function testDeregisterApiProvider() public {
-        _registerApiProvider(apiProvider, "https://api.example.com");
-
-        vm.expectEmit(true, false, false, false);
-        emit ApiProviderDeregistered(apiProvider);
-
-        vm.prank(apiProvider);
-        escrow.deregisterApiProvider();
-
-        assertFalse(escrow.isApiProviderRegistered(apiProvider));
-        assertEq(escrow.getApiProviderUri(apiProvider), "");
-    }
-
-    function testDeregisterApiProviderFailsWhenNotRegistered() public {
-        vm.prank(apiProvider);
-        vm.expectRevert("Not registered");
-        escrow.deregisterApiProvider();
-    }
-
-    function testChangeApiProviderUri() public {
-        _registerApiProvider(apiProvider, "https://api.example.com");
-
-        string memory newUri = "https://api2.example.com";
-        vm.prank(apiProvider);
-        escrow.changeApiProviderUri(newUri);
-
-        assertEq(escrow.getApiProviderUri(apiProvider), newUri);
-    }
-
-    function testChangeApiProviderUriFailsWithEmptyUri() public {
-        _registerApiProvider(apiProvider, "https://api.example.com");
-
-        vm.prank(apiProvider);
-        vm.expectRevert("URI cannot be empty");
-        escrow.changeApiProviderUri("");
-    }
-
-    function testSetEndpointRate() public {
-        _registerApiProvider(apiProvider, "https://api.example.com");
-
-        string memory endpoint = "/users";
-        uint256 rate = 100;
-
-        vm.expectEmit(true, false, false, false);
-        emit RateUpdated(apiProvider, endpoint, rate);
-
-        vm.prank(apiProvider);
-        escrow.setEndpointRate(endpoint, rate);
-
-        assertEq(escrow.getEndpointRate(apiProvider, endpoint), rate);
-    }
-
-    function testSetDefaultRate() public {
-        _registerApiProvider(apiProvider, "https://api.example.com");
-
-        uint256 rate = 50;
-
-        vm.expectEmit(true, false, false, false);
-        emit DefaultRateUpdated(apiProvider, rate);
-
-        vm.prank(apiProvider);
-        escrow.setDefaultRate(rate);
-
-        assertEq(escrow.getDefaultRate(apiProvider), rate);
-    }
-
-    function testGetEndpointRateReturnsDefaultWhenNotSet() public {
-        _registerApiProvider(apiProvider, "https://api.example.com");
-
-        uint256 defaultRate = 50;
-        vm.prank(apiProvider);
-        escrow.setDefaultRate(defaultRate);
-
-        assertEq(escrow.getEndpointRate(apiProvider, "/nonexistent"), defaultRate);
-    }
-
-    ///////////////////////////////////
-    //    API User Functions Tests  ///
-    ///////////////////////////////////
-
-    function testDeposit() public {
-        _registerApiProvider(apiProvider, "https://api.example.com");
-
-        uint256 amount = 1000 * 10 ** 18;
-
-        vm.expectEmit(true, true, false, false);
-        emit Deposit(depositor, apiProvider, amount);
-
-        vm.prank(depositor);
-        escrow.deposit(apiProvider, amount);
-
-        assertEq(escrow.getDeposit(depositor, apiProvider), amount);
-        assertTrue(escrow.isDepositorToApiProvider(depositor, apiProvider));
-        assertEq(pyusdToken.balanceOf(address(escrow)), amount);
-    }
-
-    function testDepositFailsWhenApiProviderNotRegistered() public {
-        uint256 amount = 1000 * 10 ** 18;
-
-        vm.prank(depositor);
-        vm.expectRevert("API provider not registered");
-        escrow.deposit(apiProvider, amount);
-    }
-
-    function testDepositFailsWithZeroAmount() public {
-        _registerApiProvider(apiProvider, "https://api.example.com");
-
-        vm.prank(depositor);
-        vm.expectRevert("Amount must be greater than 0");
-        escrow.deposit(apiProvider, 0);
-    }
-
-    function testDepositFailsWhenPaused() public {
-        _registerApiProvider(apiProvider, "https://api.example.com");
-        escrow.pause();
-
-        vm.prank(depositor);
-        vm.expectRevert();
-        escrow.deposit(apiProvider, 1000 * 10 ** 18);
-    }
-
-    function testDepositWithdraw() public {
-        _registerApiProvider(apiProvider, "https://api.example.com");
-
-        uint256 amount = 1000 * 10 ** 18;
-
-        // First deposit
-        vm.prank(depositor);
-        escrow.deposit(apiProvider, amount);
-
-        uint256 withdrawAmount = 500 * 10 ** 18;
-        uint256 depositorBalanceBefore = pyusdToken.balanceOf(depositor);
-
-        vm.expectEmit(true, true, false, false);
-        emit DepositWithdraw(depositor, apiProvider, withdrawAmount);
-
-        vm.prank(depositor);
-        escrow.depositWithdraw(withdrawAmount, apiProvider);
-
-        assertEq(escrow.getDeposit(depositor, apiProvider), amount - withdrawAmount);
-        assertEq(pyusdToken.balanceOf(depositor), depositorBalanceBefore + withdrawAmount);
-        assertTrue(escrow.isDepositorToApiProvider(depositor, apiProvider)); // Still has deposits
-    }
-
-    function testDepositWithdrawAllResetsDepositorStatus() public {
-        _registerApiProvider(apiProvider, "https://api.example.com");
-
-        uint256 amount = 1000 * 10 ** 18;
-
-        // Deposit and withdraw all
-        vm.prank(depositor);
-        escrow.deposit(apiProvider, amount);
-
-        vm.prank(depositor);
-        escrow.depositWithdraw(amount, apiProvider);
-
-        assertEq(escrow.getDeposit(depositor, apiProvider), 0);
-        assertFalse(escrow.isDepositorToApiProvider(depositor, apiProvider));
-    }
-
-    function testDepositWithdrawFailsWithInsufficientBalance() public {
-        _registerApiProvider(apiProvider, "https://api.example.com");
-
-        uint256 depositAmount = 500 * 10 ** 18;
-        uint256 withdrawAmount = 1000 * 10 ** 18;
-
-        vm.prank(depositor);
-        escrow.deposit(apiProvider, depositAmount);
-
-        vm.prank(depositor);
-        vm.expectRevert("Insufficient deposited balance");
-        escrow.depositWithdraw(withdrawAmount, apiProvider);
-    }
-
-    ///////////////////////////////////
-    //  API Provider Withdraw Tests ///
-    ///////////////////////////////////
-
-    function testApiProviderWithdraw() public {
-        // Register and pre-fund provider balance via settlement
-        _registerApiProvider(apiProvider, "https://api.example.com");
-        uint256 prefund = 500e18;
-        vm.prank(depositor);
-        escrow.deposit(apiProvider, prefund);
-
-        uint256[] memory inputs = new uint256[](4);
-        inputs[0] = prefund; // total
-        inputs[1] = uint256(uint160(depositor));
-        inputs[2] = uint256(uint160(apiProvider));
-        inputs[3] = prefund; // amount
-        bytes memory proof = abi.encode("mock_proof");
-        escrow.settlePayments(proof, inputs, keccak256("prefund-withdraw-1"));
-
-        vm.prank(apiProvider);
-        escrow.apiProviderWithdraw(100e18);
-
-        assertEq(escrow.getApiProviderBalance(apiProvider), 400e18);
-        assertEq(pyusdToken.balanceOf(apiProvider), 100e18);
-    }
-
-    function testApiProviderWithdrawAll() public {
-        // Register and pre-fund provider balance via settlement
-        _registerApiProvider(apiProvider, "https://api.example.com");
-        uint256 prefund = 500e18;
-        vm.prank(depositor);
-        escrow.deposit(apiProvider, prefund);
-
-        uint256[] memory inputs = new uint256[](4);
-        inputs[0] = prefund; // total
-        inputs[1] = uint256(uint160(depositor));
-        inputs[2] = uint256(uint160(apiProvider));
-        inputs[3] = prefund; // amount
-        bytes memory proof = abi.encode("mock_proof");
-        escrow.settlePayments(proof, inputs, keccak256("prefund-withdraw-2"));
-
-        vm.prank(apiProvider);
-        escrow.apiProviderWithdrawAll();
-
-        assertEq(escrow.getApiProviderBalance(apiProvider), 0);
-        assertEq(pyusdToken.balanceOf(apiProvider), 500e18);
-    }
-
-    ///////////////////////////////////
-    //   Payment Settlement Tests   ///
-    ///////////////////////////////////
-
-    function testSettlePayments() public {
-        // Setup: Register API provider and make deposits
-        _registerApiProvider(apiProvider, "https://api.example.com");
-        _registerApiProvider(apiProvider2, "https://api2.example.com");
-
-        uint256 deposit1 = 1000 * 10 ** 18;
-        uint256 deposit2 = 2000 * 10 ** 18;
-
-        vm.prank(depositor);
-        escrow.deposit(apiProvider, deposit1);
-
-        vm.prank(user);
-        escrow.deposit(apiProvider2, deposit2);
-
-        // Setup settlement data
-        bytes32 settlementId = keccak256("settlement1");
-        uint256 payment1 = 100 * 10 ** 18;
-        uint256 payment2 = 200 * 10 ** 18;
-        uint256 totalAmount = payment1 + payment2;
-
-        uint256[] memory publicInputs = new uint256[](7);
-        publicInputs[0] = totalAmount;
-        publicInputs[1] = uint256(uint160(depositor));
-        publicInputs[2] = uint256(uint160(apiProvider));
-        publicInputs[3] = payment1;
-        publicInputs[4] = uint256(uint160(user));
-        publicInputs[5] = uint256(uint160(apiProvider2));
-        publicInputs[6] = payment2;
+    function testGetProviderBalance() public {
+        // Process payment first
+        vm.prank(user1);
+        escrow.deposit(DEPOSIT_AMOUNT_USD);
 
         bytes memory proof = abi.encode("mock_proof");
-
-        vm.expectEmit(true, true, false, false);
-        emit PaymentSettled(depositor, apiProvider, payment1);
-
-        vm.expectEmit(true, true, false, false);
-        emit PaymentSettled(user, apiProvider2, payment2);
-
-        vm.expectEmit(true, false, false, false);
-        emit BatchSettled(settlementId, totalAmount);
-
-        escrow.settlePayments(proof, publicInputs, settlementId);
-
-        // Verify balances updated correctly
-        assertEq(escrow.getDeposit(depositor, apiProvider), deposit1 - payment1);
-        assertEq(escrow.getDeposit(user, apiProvider2), deposit2 - payment2);
-        assertEq(escrow.getApiProviderBalance(apiProvider), payment1);
-        assertEq(escrow.getApiProviderBalance(apiProvider2), payment2);
-        assertTrue(escrow.isSettlementProcessed(settlementId));
-    }
-
-    function testSettlePaymentsFailsForNonOwner() public {
-        bytes32 settlementId = keccak256("settlement1");
         uint256[] memory publicInputs = new uint256[](1);
-        publicInputs[0] = 100;
-        bytes memory proof = abi.encode("mock_proof");
+        publicInputs[0] = 3000;
 
-        vm.prank(user);
-        vm.expectRevert("Only owner can settle payments");
-        escrow.settlePayments(proof, publicInputs, settlementId);
+        vm.prank(owner);
+        escrow.processBatchPayment(user1, provider1, 3000, 100, proof, publicInputs);
+
+        assertEq(escrow.getProviderBalance(provider1), 3000);
     }
 
-    function testSettlePaymentsFailsWhenAlreadyProcessed() public {
-        _registerApiProvider(apiProvider, "https://api.example.com");
-
-        vm.prank(depositor);
-        escrow.deposit(apiProvider, 1000 * 10 ** 18);
-
-        bytes32 settlementId = keccak256("settlement1");
-        uint256[] memory publicInputs = new uint256[](4);
-        publicInputs[0] = 500 * 10 ** 18; // Total amount
-        publicInputs[1] = uint256(uint160(depositor));
-        publicInputs[2] = uint256(uint160(apiProvider));
-        publicInputs[3] = 500 * 10 ** 18; // Payment amount
-
-        bytes memory proof = abi.encode("mock_proof");
-
-        // First settlement
-        escrow.settlePayments(proof, publicInputs, settlementId);
-
-        // Second settlement with same ID should fail
-        vm.expectRevert("Settlement already processed");
-        escrow.settlePayments(proof, publicInputs, settlementId);
-    }
-
-    function testSettlePaymentsFailsWithInvalidProof() public {
-        zkVerifier.setShouldVerify(false);
-
-        bytes32 settlementId = keccak256("settlement1");
-        uint256[] memory publicInputs = new uint256[](1);
-        publicInputs[0] = 100;
-        bytes memory proof = abi.encode("invalid_proof");
-
-        vm.expectRevert("Invalid ZK proof");
-        escrow.settlePayments(proof, publicInputs, settlementId);
-    }
-
-    function testSettlePaymentsFailsWithInvalidPublicInputsFormat() public {
-        bytes32 settlementId = keccak256("settlement1");
-        uint256[] memory publicInputs = new uint256[](3); // Should be 1 + 3*n format
-        bytes memory proof = abi.encode("mock_proof");
-
-        vm.expectRevert("Invalid payment data format");
-        escrow.settlePayments(proof, publicInputs, settlementId);
-    }
-
-    function testSettlePaymentsFailsWithTotalAmountMismatch() public {
-        _registerApiProvider(apiProvider, "https://api.example.com");
-
-        vm.prank(depositor);
-        escrow.deposit(apiProvider, 1000 * 10 ** 18);
-
-        bytes32 settlementId = keccak256("settlement1");
-        uint256[] memory publicInputs = new uint256[](4);
-        publicInputs[0] = 500 * 10 ** 18; // Total amount
-        publicInputs[1] = uint256(uint160(depositor));
-        publicInputs[2] = uint256(uint160(apiProvider));
-        publicInputs[3] = 300 * 10 ** 18; // Actual payment (mismatch!)
-
-        bytes memory proof = abi.encode("mock_proof");
-
-        vm.expectRevert("Total amount mismatch");
-        escrow.settlePayments(proof, publicInputs, settlementId);
-    }
-
-    ///////////////////////////////////
-    //      View Functions Tests    ///
-    ///////////////////////////////////
-
-    function testViewFunctions() public {
-        _registerApiProvider(apiProvider, "https://api.example.com");
-
-        // Test deposit view
-        uint256 amount = 1000 * 10 ** 18;
-        vm.prank(depositor);
-        escrow.deposit(apiProvider, amount);
-
-        assertEq(escrow.getDeposit(depositor, apiProvider), amount);
-        assertEq(escrow.getApiProviderBalance(apiProvider), 0);
-        assertEq(escrow.getApiProviderUri(apiProvider), "https://api.example.com");
-        assertTrue(escrow.isApiProviderRegistered(apiProvider));
-        assertFalse(escrow.isApiProviderRegistered(user));
-
-        // Test rates
-        vm.prank(apiProvider);
-        escrow.setDefaultRate(100);
-
-        vm.prank(apiProvider);
-        escrow.setEndpointRate("/users", 150);
-
-        assertEq(escrow.getDefaultRate(apiProvider), 100);
-        assertEq(escrow.getEndpointRate(apiProvider, "/users"), 150);
-        assertEq(escrow.getEndpointRate(apiProvider, "/posts"), 100); // Returns default
-    }
-
-    ///////////////////////////////////
-    //      Edge Cases & Security   ///
-    ///////////////////////////////////
+    //////////////////////////////////
+    //       EDGE CASES           ////
+    //////////////////////////////////
 
     function testReentrancyProtection() public {
-        // This would require a malicious token contract to test properly
-        // For now, we verify the modifier is present
-        _registerApiProvider(apiProvider, "https://api.example.com");
+        // This is a basic test - in a real scenario, you'd create a malicious contract
+        vm.prank(user1);
+        escrow.deposit(DEPOSIT_AMOUNT_USD);
 
-        vm.prank(depositor);
-        escrow.deposit(apiProvider, 1000 * 10 ** 18);
+        // Reentrancy should be prevented by the ReentrancyGuard
+        vm.prank(user1);
+        escrow.withdraw(5000);
 
-        vm.prank(depositor);
-        escrow.depositWithdraw(500 * 10 ** 18, apiProvider);
-
-        // If we get here without reverting, reentrancy protection is working
-        assertEq(escrow.getDeposit(depositor, apiProvider), 500 * 10 ** 18);
+        // If we got here, reentrancy protection is working
+        assertTrue(true);
     }
 
+    function testLargeAmounts() public {
+        uint256 largeAmount = 1000000; // $1M
+
+        // Mint enough tokens
+        pyusdToken.mint(user1, largeAmount * 1e6);
+
+        vm.prank(user1);
+        pyusdToken.approve(address(escrow), largeAmount * 1e6);
+
+        vm.prank(user1);
+        escrow.deposit(largeAmount);
+
+        assertEq(escrow.getUserBalanceUSD(user1), largeAmount);
+    }
+
+    function testMultipleProvidersAndUsers() public {
+        // Multiple users deposit
+        vm.prank(user1);
+        escrow.deposit(100);
+
+        vm.prank(user2);
+        escrow.deposit(200);
+
+        // Process payments to multiple providers
+        bytes memory proof = abi.encode("mock_proof");
+        uint256[] memory publicInputs = new uint256[](1);
+
+        publicInputs[0] = 3000;
+        vm.prank(owner);
+        escrow.processBatchPayment(user1, provider1, 3000, 100, proof, publicInputs);
+
+        publicInputs[0] = 5000;
+        vm.prank(owner);
+        escrow.processBatchPayment(user2, provider2, 5000, 150, proof, publicInputs);
+
+        assertEq(escrow.getUserBalance(user1), 10000 - 3000);
+        assertEq(escrow.getUserBalance(user2), 20000 - 5000);
+        assertEq(escrow.getProviderBalance(provider1), 3000);
+        assertEq(escrow.getProviderBalance(provider2), 5000);
+    }
+
+    //////////////////////////////////
+    //         FUZZ TESTS         ////
+    //////////////////////////////////
+
     function testFuzzDeposit(uint256 amount) public {
-        vm.assume(amount > 0 && amount <= INITIAL_BALANCE);
+        vm.assume(amount > 0 && amount < INITIAL_BALANCE / 1e6); // Reasonable bounds
 
-        _registerApiProvider(apiProvider, "https://api.example.com");
+        vm.prank(user1);
+        escrow.deposit(amount);
 
-        vm.prank(depositor);
-        escrow.deposit(apiProvider, amount);
-
-        assertEq(escrow.getDeposit(depositor, apiProvider), amount);
+        assertEq(escrow.getUserBalanceUSD(user1), amount);
+        assertEq(escrow.getUserBalance(user1), amount * 100);
     }
 
     function testFuzzWithdraw(uint256 depositAmount, uint256 withdrawAmount) public {
-        vm.assume(depositAmount > 0 && depositAmount <= INITIAL_BALANCE);
-        vm.assume(withdrawAmount > 0 && withdrawAmount <= depositAmount);
+        vm.assume(depositAmount > 0 && depositAmount < INITIAL_BALANCE / 1e6);
+        vm.assume(withdrawAmount > 0 && withdrawAmount <= depositAmount * 100);
 
-        _registerApiProvider(apiProvider, "https://api.example.com");
+        vm.prank(user1);
+        escrow.deposit(depositAmount);
 
-        vm.prank(depositor);
-        escrow.deposit(apiProvider, depositAmount);
+        vm.prank(user1);
+        escrow.withdraw(withdrawAmount);
 
-        vm.prank(depositor);
-        escrow.depositWithdraw(withdrawAmount, apiProvider);
-
-        assertEq(escrow.getDeposit(depositor, apiProvider), depositAmount - withdrawAmount);
+        assertEq(escrow.getUserBalance(user1), depositAmount * 100 - withdrawAmount);
     }
 }

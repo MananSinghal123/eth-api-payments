@@ -16,10 +16,6 @@ interface IVerifier {
     function verify(bytes memory _proof, uint256[] memory _publicInputs) external view returns (bool);
 }
 
-/**
- * @title Enhanced Escrow Contract for Web3 API Monetization
- * @dev Core escrow with ZK proof settlement, batching handled by backend
- */
 contract Escrow is ReentrancyGuard, Pausable, Ownable {
     using SafeERC20 for IERC20;
 
@@ -27,36 +23,16 @@ contract Escrow is ReentrancyGuard, Pausable, Ownable {
     IERC20 public immutable pyusdToken;
     IVerifier public zkVerifier;
 
-    // Core storage mappings
-    mapping(address => mapping(address => uint256)) public depositsUserToApiProvider;
-    mapping(address => mapping(address => bool)) public isDepositorToApiProvider;
-    mapping(address => string) public apiProviderToUri;
-    mapping(address => uint256) public apiProviderBalances;
-    mapping(address => bool) public registeredApiProviders;
-
-    // Frontend management - NEW
-    mapping(address => mapping(address => string)) public userFrontendForApiProvider; // user => apiProvider => frontendUrl
-    mapping(address => mapping(address => bool)) public hasUserSetFrontend; // user => apiProvider => bool
-
-    // Rate management
-    mapping(address => mapping(string => uint256)) public apiProviderRates; // provider => endpoint => rate
-    mapping(address => uint256) public defaultApiProviderRates; // provider => default rate
-
-    // Settlement tracking
-    mapping(bytes32 => bool) public processedSettlements;
+    // Core storage - simplified to match backend logic
+    mapping(address => uint256) public userBalances; // wallet => balance in cents
+    mapping(address => uint256) public providerBalances;
 
     // Events
-    event Deposit(address indexed depositor, address indexed apiProvider, uint256 amount, string frontendUrl);
-    event DepositWithdraw(address indexed depositor, address indexed apiProvider, uint256 amount);
-    event ApiProviderRegistered(address indexed apiProvider, string uri);
-    event ApiProviderDeregistered(address indexed apiProvider);
-    event ApiProviderWithdraw(address indexed apiProvider, uint256 amount);
-    event PaymentSettled(address indexed depositor, address indexed apiProvider, uint256 amount);
-    event BatchSettled(bytes32 indexed settlementId, uint256 totalAmount);
-    event RateUpdated(address indexed apiProvider, string endpoint, uint256 newRate);
-    event DefaultRateUpdated(address indexed apiProvider, uint256 newRate);
+    event UserDeposit(address indexed user, uint256 amount);
+    event UserWithdraw(address indexed user, uint256 amount);
+    event ProviderWithdraw(address indexed provider, uint256 amount);
+    event BatchPayment(address indexed user, address indexed provider, uint256 amount, uint256 numCalls);
     event ZkVerifierUpdated(address indexed oldVerifier, address indexed newVerifier);
-    event FrontendSet(address indexed user, address indexed apiProvider, string frontendUrl); // NEW
 
     constructor(address _pyusdAddress, address _zkVerifier) Ownable(msg.sender) {
         pyusdToken = IERC20(_pyusdAddress);
@@ -66,21 +42,6 @@ contract Escrow is ReentrancyGuard, Pausable, Ownable {
     ///////////////////////////////////
     //       Modifiers            /////
     ///////////////////////////////////
-
-    modifier onlyRegisteredApiProvider(address apiProvider) {
-        require(registeredApiProviders[apiProvider], "API provider not registered");
-        _;
-    }
-
-    modifier onlyApiProviderOwner(address apiProvider) {
-        require(msg.sender == apiProvider, "Only API provider owner can call this");
-        _;
-    }
-
-    modifier onlyDepositorToApiProvider(address depositor, address apiProvider) {
-        require(isDepositorToApiProvider[depositor][apiProvider], "No deposits found for this address");
-        _;
-    }
 
     modifier validAmount(uint256 amount) {
         require(amount > 0, "Amount must be greater than 0");
@@ -111,239 +72,139 @@ contract Escrow is ReentrancyGuard, Pausable, Ownable {
     }
 
     ///////////////////////////////////
-    //       API User Functions   /////
+    //       User Functions       /////
     ///////////////////////////////////
 
-    function deposit(address apiProvider, uint256 amount, string calldata frontendUrl)
-        external
-        nonReentrant
-        whenNotPaused
-        validAmount(amount)
-        onlyRegisteredApiProvider(apiProvider)
-    {
-        require(bytes(frontendUrl).length > 0, "Frontend URL cannot be empty");
+    /**
+     * @dev User deposits PYUSD tokens to their balance
+     * @param amountUSD Amount in USD (will be converted to cents)
+     */
+    function deposit(uint256 amountUSD) external nonReentrant whenNotPaused validAmount(amountUSD) {
+        // Convert USD to PYUSD tokens (assuming 1:1 ratio)
+        pyusdToken.safeTransferFrom(msg.sender, address(this), amountUSD * 1e6); // PYUSD has 6 decimals
 
-        pyusdToken.safeTransferFrom(msg.sender, address(this), amount);
+        // Store balance in cents for easier backend integration
+        uint256 amountCents = amountUSD * 100;
+        userBalances[msg.sender] += amountCents;
 
-        depositsUserToApiProvider[msg.sender][apiProvider] += amount;
-        isDepositorToApiProvider[msg.sender][apiProvider] = true;
-
-        // Set frontend for this user-apiProvider pair
-        userFrontendForApiProvider[msg.sender][apiProvider] = frontendUrl;
-        hasUserSetFrontend[msg.sender][apiProvider] = true;
-
-        emit Deposit(msg.sender, apiProvider, amount, frontendUrl);
-        emit FrontendSet(msg.sender, apiProvider, frontendUrl);
+        emit UserDeposit(msg.sender, amountCents);
     }
 
-    function setFrontendUrl(address apiProvider, string calldata frontendUrl)
-        external
-        whenNotPaused
-        onlyRegisteredApiProvider(apiProvider)
-        onlyDepositorToApiProvider(msg.sender, apiProvider)
-    {
-        require(bytes(frontendUrl).length > 0, "Frontend URL cannot be empty");
+    /**
+     * @dev User withdraws from their balance
+     * @param amountCents Amount to withdraw in cents
+     */
+    function withdraw(uint256 amountCents) external nonReentrant whenNotPaused validAmount(amountCents) {
+        require(userBalances[msg.sender] >= amountCents, "Insufficient balance");
 
-        userFrontendForApiProvider[msg.sender][apiProvider] = frontendUrl;
-        hasUserSetFrontend[msg.sender][apiProvider] = true;
+        userBalances[msg.sender] -= amountCents;
 
-        emit FrontendSet(msg.sender, apiProvider, frontendUrl);
-    }
+        // Convert cents to PYUSD (6 decimals)
+        uint256 pyusdAmount = (amountCents * 1e6) / 100;
+        pyusdToken.safeTransfer(msg.sender, pyusdAmount);
 
-    function depositWithdraw(uint256 amount, address apiProvider)
-        external
-        nonReentrant
-        whenNotPaused
-        validAmount(amount)
-        onlyDepositorToApiProvider(msg.sender, apiProvider)
-    {
-        require(depositsUserToApiProvider[msg.sender][apiProvider] >= amount, "Insufficient deposited balance");
-
-        depositsUserToApiProvider[msg.sender][apiProvider] -= amount;
-        if (depositsUserToApiProvider[msg.sender][apiProvider] == 0) {
-            isDepositorToApiProvider[msg.sender][apiProvider] = false;
-            // Optionally clear frontend mapping when no deposits left
-            delete userFrontendForApiProvider[msg.sender][apiProvider];
-            hasUserSetFrontend[msg.sender][apiProvider] = false;
-        }
-
-        pyusdToken.safeTransfer(msg.sender, amount);
-
-        emit DepositWithdraw(msg.sender, apiProvider, amount);
+        emit UserWithdraw(msg.sender, amountCents);
     }
 
     ///////////////////////////////////
     //    Payment Settlement      /////
     ///////////////////////////////////
 
-    function settlePayments(bytes calldata proof, uint256[] memory publicInputs, bytes32 settlementId)
+    /**
+     * @dev Process batch payment with ZK proof verification
+     * @param user User's wallet address
+     * @param provider API provider address
+     * @param amountCents Payment amount in cents
+     * @param numCalls Number of API calls in the batch
+     * @param proof ZK proof bytes
+     * @param publicInputs Public inputs for proof verification
+     */
+    function processBatchPayment(
+        address user,
+        address provider,
+        uint256 amountCents,
+        uint256 numCalls,
+        bytes calldata proof,
+        uint256[] memory publicInputs
+    )
         external
         nonReentrant
         whenNotPaused
+        onlyOwner // Only backend can call this
     {
-        require(msg.sender == owner(), "Only owner can settle payments");
-        require(!processedSettlements[settlementId], "Settlement already processed");
+        require(userBalances[user] >= amountCents, "Insufficient user balance");
+        require(amountCents > 0, "Invalid payment amount");
+        require(provider != address(0), "Invalid provider address");
+
+        // Verify ZK proof
         require(zkVerifier.verify(proof, publicInputs), "Invalid ZK proof");
 
-        // Mark settlement as processed
-        processedSettlements[settlementId] = true;
+        // Transfer from user balance to provider balance
+        userBalances[user] -= amountCents;
+        providerBalances[provider] += amountCents;
 
-        // Public inputs format: [totalAmount, depositor1, apiProvider1, amount1, depositor2, apiProvider2, amount2, ...]
-        require(publicInputs.length >= 1, "Invalid public inputs");
-        uint256 totalAmount = publicInputs[0];
-        require((publicInputs.length - 1) % 3 == 0, "Invalid payment data format");
-
-        uint256 numPayments = (publicInputs.length - 1) / 3;
-        uint256 processedAmount = 0;
-
-        for (uint256 i = 0; i < numPayments; i++) {
-            uint256 baseIndex = 1 + (i * 3);
-            address depositor = address(uint160(publicInputs[baseIndex]));
-            address apiProvider = address(uint160(publicInputs[baseIndex + 1]));
-            uint256 amount = publicInputs[baseIndex + 2];
-
-            require(registeredApiProviders[apiProvider], "API provider not registered");
-            require(isDepositorToApiProvider[depositor][apiProvider], "No deposits found");
-            require(depositsUserToApiProvider[depositor][apiProvider] >= amount, "Insufficient deposited balance");
-            require(hasUserSetFrontend[depositor][apiProvider], "No frontend set for this user-provider pair");
-
-            // Transfer from depositor's balance to API provider's balance
-            depositsUserToApiProvider[depositor][apiProvider] -= amount;
-            if (depositsUserToApiProvider[depositor][apiProvider] == 0) {
-                isDepositorToApiProvider[depositor][apiProvider] = false;
-            }
-
-            apiProviderBalances[apiProvider] += amount;
-            processedAmount += amount;
-
-            emit PaymentSettled(depositor, apiProvider, amount);
-        }
-
-        require(processedAmount == totalAmount, "Total amount mismatch");
-        emit BatchSettled(settlementId, totalAmount);
+        emit BatchPayment(user, provider, amountCents, numCalls);
     }
 
-    ///////////////////////////////////////
-    //       API Provider Functions   /////
-    ///////////////////////////////////////
-
-    function registerApiProvider(string calldata uri) external whenNotPaused {
-        require(!registeredApiProviders[msg.sender], "Already registered");
-        require(bytes(uri).length > 0, "URI cannot be empty");
-
-        registeredApiProviders[msg.sender] = true;
-        apiProviderToUri[msg.sender] = uri;
-
-        emit ApiProviderRegistered(msg.sender, uri);
+    /**
+     * @dev Deposit funds to user balance (for testing/demo)
+     * @param user User address
+     * @param amountCents Amount in cents
+     */
+    function depositForUser(address user, uint256 amountCents) external onlyOwner validAmount(amountCents) {
+        userBalances[user] += amountCents;
+        emit UserDeposit(user, amountCents);
     }
 
-    function deregisterApiProvider() external onlyApiProviderOwner(msg.sender) {
-        require(registeredApiProviders[msg.sender], "Not registered");
-        require(apiProviderBalances[msg.sender] == 0, "Must withdraw all funds first");
+    ///////////////////////////////////
+    //    Provider Functions      /////
+    ///////////////////////////////////
 
-        registeredApiProviders[msg.sender] = false;
-        delete apiProviderToUri[msg.sender];
+    /**
+     * @dev Provider withdraws earned funds
+     * @param amountCents Amount to withdraw in cents
+     */
+    function providerWithdraw(uint256 amountCents) external nonReentrant whenNotPaused validAmount(amountCents) {
+        require(providerBalances[msg.sender] >= amountCents, "Insufficient balance");
 
-        emit ApiProviderDeregistered(msg.sender);
+        providerBalances[msg.sender] -= amountCents;
+
+        // Convert cents to PYUSD
+        uint256 pyusdAmount = (amountCents * 1e6) / 100;
+        pyusdToken.safeTransfer(msg.sender, pyusdAmount);
+
+        emit ProviderWithdraw(msg.sender, amountCents);
     }
 
-    function changeApiProviderUri(string calldata uri)
-        external
-        onlyApiProviderOwner(msg.sender)
-        onlyRegisteredApiProvider(msg.sender)
-    {
-        require(bytes(uri).length > 0, "URI cannot be empty");
-        apiProviderToUri[msg.sender] = uri;
-    }
-
-    function setEndpointRate(string calldata endpoint, uint256 rate)
-        external
-        onlyApiProviderOwner(msg.sender)
-        onlyRegisteredApiProvider(msg.sender)
-    {
-        apiProviderRates[msg.sender][endpoint] = rate;
-        emit RateUpdated(msg.sender, endpoint, rate);
-    }
-
-    function setDefaultRate(uint256 rate)
-        external
-        onlyApiProviderOwner(msg.sender)
-        onlyRegisteredApiProvider(msg.sender)
-    {
-        defaultApiProviderRates[msg.sender] = rate;
-        emit DefaultRateUpdated(msg.sender, rate);
-    }
-
-    function apiProviderWithdraw(uint256 amount)
-        external
-        nonReentrant
-        whenNotPaused
-        validAmount(amount)
-        onlyApiProviderOwner(msg.sender)
-        onlyRegisteredApiProvider(msg.sender)
-    {
-        require(apiProviderBalances[msg.sender] >= amount, "Insufficient balance");
-
-        apiProviderBalances[msg.sender] -= amount;
-        pyusdToken.safeTransfer(msg.sender, amount);
-
-        emit ApiProviderWithdraw(msg.sender, amount);
-    }
-
-    function apiProviderWithdrawAll()
-        external
-        nonReentrant
-        whenNotPaused
-        onlyApiProviderOwner(msg.sender)
-        onlyRegisteredApiProvider(msg.sender)
-    {
-        uint256 amount = apiProviderBalances[msg.sender];
+    /**
+     * @dev Provider withdraws all earned funds
+     */
+    function providerWithdrawAll() external nonReentrant whenNotPaused {
+        uint256 amount = providerBalances[msg.sender];
         require(amount > 0, "No balance to withdraw");
 
-        apiProviderBalances[msg.sender] = 0;
-        pyusdToken.safeTransfer(msg.sender, amount);
+        providerBalances[msg.sender] = 0;
 
-        emit ApiProviderWithdraw(msg.sender, amount);
+        // Convert cents to PYUSD
+        uint256 pyusdAmount = (amount * 1e6) / 100;
+        pyusdToken.safeTransfer(msg.sender, pyusdAmount);
+
+        emit ProviderWithdraw(msg.sender, amount);
     }
 
     ///////////////////////////////////
     //       View Functions       /////
     ///////////////////////////////////
 
-    function getDeposit(address depositor, address apiProvider) external view returns (uint256) {
-        return depositsUserToApiProvider[depositor][apiProvider];
+    function getUserBalance(address user) external view returns (uint256) {
+        return userBalances[user];
     }
 
-    function getApiProviderBalance(address apiProvider) external view returns (uint256) {
-        return apiProviderBalances[apiProvider];
+    function getUserBalanceUSD(address user) external view returns (uint256) {
+        return userBalances[user] / 100; // Convert cents to dollars
     }
 
-    function getApiProviderUri(address apiProvider) external view returns (string memory) {
-        return apiProviderToUri[apiProvider];
-    }
-
-    function getUserFrontend(address user, address apiProvider) external view returns (string memory) {
-        return userFrontendForApiProvider[user][apiProvider];
-    }
-
-    function hasUserSetFrontendUrl(address user, address apiProvider) external view returns (bool) {
-        return hasUserSetFrontend[user][apiProvider];
-    }
-
-    function getEndpointRate(address apiProvider, string memory endpoint) public view returns (uint256) {
-        uint256 endpointRate = apiProviderRates[apiProvider][endpoint];
-        return endpointRate > 0 ? endpointRate : defaultApiProviderRates[apiProvider];
-    }
-
-    function getDefaultRate(address apiProvider) external view returns (uint256) {
-        return defaultApiProviderRates[apiProvider];
-    }
-
-    function isApiProviderRegistered(address apiProvider) external view returns (bool) {
-        return registeredApiProviders[apiProvider];
-    }
-
-    function isSettlementProcessed(bytes32 settlementId) external view returns (bool) {
-        return processedSettlements[settlementId];
+    function getProviderBalance(address provider) external view returns (uint256) {
+        return providerBalances[provider];
     }
 }
