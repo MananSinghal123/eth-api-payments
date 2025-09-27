@@ -20,7 +20,7 @@ substreams registry publish       # Publish your Substreams to substreams.dev
 ## Modules
 
 All of these modules produce data filtered by these contracts:
-- _escrow_ at **0xe73922a448d76756babc9126f4401101cbfb4fbc**
+- _escrow_ at **0x6E5559e7Cf01860416ff9CbEcC3bbdC1f05dB3D0**
 ### `map_events`
 
 This module gets you only events that matched.

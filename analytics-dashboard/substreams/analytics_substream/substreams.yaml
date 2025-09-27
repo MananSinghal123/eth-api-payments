@@ -29,7 +29,7 @@ modules:
     blockFilter:
       module: ethcommon:index_events
       query:
-        string: evt_addr:0xe73922a448d76756babc9126f4401101cbfb4fbc
+        string: evt_addr:0x6E5559e7Cf01860416ff9CbEcC3bbdC1f05dB3D0
     inputs:
       - source: sf.ethereum.type.v2.Block
     output:

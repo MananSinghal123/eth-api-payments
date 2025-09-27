@@ -233,7 +233,7 @@ echo -e "\n📝 Step 8: Contract Integration Check"
 echo "===================================="
 
 # Check if the contract address matches
-CONTRACT_ADDRESS="0xe73922a448d76756babc9126f4401101cbfb4fbc"
+CONTRACT_ADDRESS="0x6E5559e7Cf01860416ff9CbEcC3bbdC1f05dB3D0"
 NETWORK="sepolia"
 
 echo "Contract Address: $CONTRACT_ADDRESS"

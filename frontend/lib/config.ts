@@ -111,7 +111,7 @@ export const contractConfig = {
     escrow: {
       address: getContractAddress(
         'NEXT_PUBLIC_ESCROW_SEPOLIA',
-        '0xe73922A448D76756bAbC9126f4401101cbFB4FBc' // Correct deployed Escrow contract address on Sepolia
+        '0x6E5559e7Cf01860416ff9CbEcC3bbdC1f05dB3D0' // Updated deployed Escrow contract address on Sepolia
       ),
       abi: Escrow.abi,
       chainId: sepolia.id,
