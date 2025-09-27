@@ -158,7 +158,7 @@ app.post('/api/verify-and-pay-batch', async (req, res) => {
         console.log(`✅ Batch proof verified in ${verificationResult.verificationTime}ms`);
         
         // Step 2: Calculate payment based on total claimed usage
-        const paymentAmount = batchData.total_claimed_usage;
+        const paymentAmount = Math.ceil(batchData.total_claimed_usage);
         console.log(`💰 Batch payment calculated: ${paymentAmount} cents for ${batchData.num_calls} calls`);
         
         // Step 3: Call processBatchPayment in smart contract
@@ -168,12 +168,14 @@ app.post('/api/verify-and-pay-batch', async (req, res) => {
                 
                 const tx = await escrowContract.processBatchPayment(
                     walletAddress,           // user address
-                    "0x5bfe1b43CdAEf75Fd2705545EE4d6A7c12440f9d",          // provider address (backend wallet)
+                    "0x5bfe1b43CdAEf75Fd2705545EE4d6A7c12440f9d",//Ideally Should be given by the provider to receive funds
                     paymentAmount,           // amountCents
                     batchData.num_calls,     // numCalls
                     '0x' + proof,           // proof (ensure hex prefix)
                     publicInputs            // publicInputs array
                 );
+
+                console.log(`Payment from ${walletAddress} to 0x5bfe1b43CdAEf75Fd2705545EE4d6A7c12440f9d`)
                 
                 console.log(`📝 Transaction submitted: ${tx.hash}`);
                 console.log('⏳ Waiting for confirmation...');

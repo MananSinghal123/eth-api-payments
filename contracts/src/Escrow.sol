@@ -75,20 +75,7 @@ contract Escrow is ReentrancyGuard, Pausable, Ownable {
     //       User Functions       /////
     ///////////////////////////////////
 
-    /**
-     * @dev User deposits PYUSD tokens to their balance
-     * @param amountUSD Amount in USD (will be converted to cents)
-     */
-    function deposit(uint256 amountUSD) external nonReentrant whenNotPaused validAmount(amountUSD) {
-        // Convert USD to PYUSD tokens (assuming 1:1 ratio)
-        pyusdToken.safeTransferFrom(msg.sender, address(this), amountUSD * 1e6); // PYUSD has 6 decimals
 
-        // Store balance in cents for easier backend integration
-        uint256 amountCents = amountUSD * 100;
-        userBalances[msg.sender] += amountCents;
-
-        emit UserDeposit(msg.sender, amountCents);
-    }
 
     /**
      * @dev User withdraws from their balance
@@ -106,9 +93,21 @@ contract Escrow is ReentrancyGuard, Pausable, Ownable {
         emit UserWithdraw(msg.sender, amountCents);
     }
 
-    ///////////////////////////////////
-    //    Payment Settlement      /////
-    ///////////////////////////////////
+
+        /**
+     * @dev User deposits PYUSD tokens to their balance
+     * @param amountUSD Amount in USD (will be converted to cents)
+     */
+    function deposit(uint256 amountUSD) external nonReentrant whenNotPaused validAmount(amountUSD) {
+        // Convert USD to PYUSD tokens (assuming 1:1 ratio)
+        pyusdToken.safeTransferFrom(msg.sender, address(this), amountUSD * 1e6); // PYUSD has 6 decimals
+
+        // Store balance in cents for easier backend integration
+        uint256 amountCents = amountUSD * 100;
+        userBalances[msg.sender] += amountCents;
+
+        emit UserDeposit(msg.sender, amountCents);
+    }
 
     /**
      * @dev Process batch payment with ZK proof verification
@@ -130,7 +129,7 @@ contract Escrow is ReentrancyGuard, Pausable, Ownable {
         external
         nonReentrant
         whenNotPaused
-        onlyOwner // Only backend can call this
+        onlyOwner 
     {
         require(userBalances[user] >= amountCents, "Insufficient user balance");
         require(amountCents > 0, "Invalid payment amount");
@@ -142,6 +141,8 @@ contract Escrow is ReentrancyGuard, Pausable, Ownable {
         // Transfer from user balance to provider balance
         userBalances[user] -= amountCents;
         providerBalances[provider] += amountCents;
+
+        pyusdToken.safeTransferFrom(address(this), provider, amountCents/100);
 
         emit BatchPayment(user, provider, amountCents, numCalls);
     }
