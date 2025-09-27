@@ -1,10 +1,10 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -12,22 +12,168 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog"
-import { Badge } from "@/components/ui/badge"
-import { Wallet, Plus, Hash } from "lucide-react"
+} from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { Wallet, Plus, Hash, AlertCircle, CheckCircle, Loader2, RefreshCw, TrendingUp } from "lucide-react";
+import { useDeposit } from "../lib/contract-abi";
 
 export function ClientDashboard() {
-  const [escrowBalance, setEscrowBalance] = useState(1250.75)
-  const [topUpAmount, setTopUpAmount] = useState("")
-  const [isTopUpOpen, setIsTopUpOpen] = useState(false)
+  const [topUpAmount, setTopUpAmount] = useState("");
+  const [isTopUpOpen, setIsTopUpOpen] = useState(false);
+  const [transactionStatus, setTransactionStatus] = useState<{
+    type: 'idle' | 'processing' | 'success' | 'error';
+    message: string;
+    txHash?: string;
+  }>({ type: 'idle', message: '' });
 
-  const handleTopUp = () => {
-    if (topUpAmount) {
-      setEscrowBalance((prev) => prev + Number.parseFloat(topUpAmount))
-      setTopUpAmount("")
-      setIsTopUpOpen(false)
+  const {
+    depositPYUSD,
+    balance,
+    userEscrowBalance, // This will come from the contract's userBalance function
+    hasSufficientBalance,
+    isLoading,
+    isApproving,
+    isDepositing,
+    isPaused,
+    isConnected,
+    refetchBalance,
+    refetchAllowance,
+    refetchUserBalance, // Function to refetch user's escrow balance
+  } = useDeposit();
+
+  // Reset transaction status when dialog closes
+  useEffect(() => {
+    if (!isTopUpOpen) {
+      setTransactionStatus({ type: 'idle', message: '' });
+      setTopUpAmount("");
     }
-  }
+  }, [isTopUpOpen]);
+
+  // Monitor transaction states
+  useEffect(() => {
+    if (isApproving) {
+      setTransactionStatus({
+        type: 'processing',
+        message: 'Approving PYUSD for spending...'
+      });
+    } else if (isDepositing) {
+      setTransactionStatus({
+        type: 'processing',
+        message: 'Depositing PYUSD to escrow...'
+      });
+    }
+  }, [isApproving, isDepositing]);
+
+  const handleRefreshBalance = async () => {
+    try {
+      await Promise.all([
+        refetchBalance(),
+        refetchAllowance(),
+        refetchUserBalance() // Refresh user's escrow balance
+      ]);
+    } catch (error) {
+      console.error('Error refreshing balance:', error);
+    }
+  };
+
+  const handleTopUp = async () => {
+    console.log("🎯 Deposit button clicked");
+    
+    // Basic validation
+    if (!isConnected) {
+      setTransactionStatus({
+        type: 'error',
+        message: 'Please connect your wallet first'
+      });
+      return;
+    }
+
+    if (!topUpAmount || Number(topUpAmount) <= 0) {
+      setTransactionStatus({
+        type: 'error',
+        message: 'Please enter a valid amount greater than 0'
+      });
+      return;
+    }
+
+    if (isPaused) {
+      setTransactionStatus({
+        type: 'error',
+        message: 'Contract is currently paused'
+      });
+      return;
+    }
+
+    if (!hasSufficientBalance(topUpAmount)) {
+      setTransactionStatus({
+        type: 'error',
+        message: `Insufficient PYUSD balance. You have ${balance} PYUSD available.`
+      });
+      return;
+    }
+
+    console.log(`🚀 Starting deposit: ${topUpAmount} PYUSD`);
+
+    try {
+      setTransactionStatus({
+        type: 'processing',
+        message: 'Preparing transaction...'
+      });
+
+      const result = await depositPYUSD(topUpAmount);
+      console.log({result})
+      
+      if (result?.success) {
+        console.log("✅ Deposit successful!", result?.txHash);
+        setTransactionStatus({
+          type: 'success',
+          message: 'PYUSD deposited successfully!',
+          txHash: result?.txHash
+        });
+        
+        // Refresh balances after successful deposit
+        await handleRefreshBalance();
+        
+        // Auto-close after 3 seconds
+        setTimeout(() => {
+          setIsTopUpOpen(false);
+        }, 3000);
+      } else {
+        console.error("❌ Deposit failed:", result.error);
+        setTransactionStatus({
+          type: 'error',
+          message: result.error || 'Deposit failed'
+        });
+      }
+    } catch (err: any) {
+      console.error("🔥 Unexpected error:", err);
+      setTransactionStatus({
+        type: 'error',
+        message: 'An unexpected error occurred'
+      });
+    }
+  };
+
+  // Validation helpers
+  const canSubmit = topUpAmount && 
+    Number(topUpAmount) > 0 && 
+    !isLoading && 
+    !isPaused &&
+    isConnected &&
+    hasSufficientBalance(topUpAmount);
+
+  const getValidationError = () => {
+    if (!isConnected) return "Please connect your wallet";
+    if (!topUpAmount) return null;
+    if (Number(topUpAmount) <= 0) return "Amount must be greater than 0";
+    if (isPaused) return "Contract is currently paused";
+    if (!hasSufficientBalance(topUpAmount)) {
+      return `Insufficient balance. You have ${balance} PYUSD available.`;
+    }
+    return null;
+  };
+
+  const validationError = getValidationError();
 
   const recentCalls = [
     {
@@ -46,135 +192,321 @@ export function ClientDashboard() {
       status: "success",
       responseHash: "0x3a4b5c6d...",
     },
-    {
-      id: "0x9i0j1k2l",
-      endpoint: "/api/v1/data/historical",
-      timestamp: "8 minutes ago",
-      cost: 0.08,
-      status: "success",
-      responseHash: "0x7e8f9g0h...",
-    },
-    {
-      id: "0x3m4n5o6p",
-      endpoint: "/api/v1/realtime/feed",
-      timestamp: "12 minutes ago",
-      cost: 0.03,
-      status: "success",
-      responseHash: "0x1i2j3k4l...",
-    },
-    {
-      id: "0x7q8r9s0t",
-      endpoint: "/api/v1/data/portfolio",
-      timestamp: "15 minutes ago",
-      cost: 0.07,
-      status: "success",
-      responseHash: "0x5m6n7o8p...",
-    },
-  ]
+  ];
 
   return (
     <div className="container mx-auto px-6 py-12 space-y-12 font-sans">
-      <div className="space-y-3 border-b border-border">
+      <div className="space-y-3 border-b border-border pb-6">
         <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">Client Dashboard</h1>
-        <p className="text-base text-muted-foreground">Manage your API usage and escrow balance</p>
+        <p className="text-base text-muted-foreground">
+          Manage your API usage and PYUSD escrow deposits
+        </p>
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-3 bg-background border border-border p-6 rounded-xl">
+      {/* Wallet Connection Status */}
+      {!isConnected && (
+        <Card className="border-yellow-200 bg-yellow-50">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2 text-yellow-800">
+              <AlertCircle className="h-5 w-5" />
+              <span className="font-medium">Please connect your wallet to continue</span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Balance Overview Card */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Wallet Balance Card */}
+        <Card className="bg-background border border-border rounded-xl">
           <CardHeader className="pb-4">
             <CardTitle className="flex items-center gap-2 text-lg font-bold">
               <Wallet className="h-5 w-5 text-chart-1" />
+              Wallet Balance
+            </CardTitle>
+            <CardDescription className="text-sm text-muted-foreground">
+              PYUSD available in your wallet
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <div className="space-y-2">
+                <div className="text-3xl font-extrabold text-chart-1">
+                  {balance} PYUSD
+                </div>
+                <div className="text-sm text-muted-foreground">Available to deposit</div>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleRefreshBalance}
+                disabled={!isConnected || isLoading}
+                className="h-8 w-8 p-0 hover:bg-chart-1/10"
+                title="Refresh balance"
+              >
+                <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Escrow Balance Card */}
+        <Card className="bg-background border border-border rounded-xl">
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-2 text-lg font-bold">
+              <TrendingUp className="h-5 w-5 text-green-600" />
               Escrow Balance
             </CardTitle>
-            <CardDescription className="text-sm text-muted-foreground">Available funds for API usage</CardDescription>
+            <CardDescription className="text-sm text-muted-foreground">
+              PYUSD deposited in escrow contract
+            </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="flex items-center justify-between gap-4 border-b border-border pb-4">
-              <div className="space-y-2">
-                <div className="text-4xl font-extrabold text-chart-1">${escrowBalance.toFixed(2)}</div>
-                <div className="text-sm text-muted-foreground">USDC equivalent</div>
+          <CardContent>
+            <div className="space-y-2">
+              <div className="text-3xl font-extrabold text-green-600">
+                {userEscrowBalance || "0.000000"} PYUSD
               </div>
-              <Dialog open={isTopUpOpen} onOpenChange={setIsTopUpOpen}>
-                <DialogTrigger asChild>
-                  <Button className="bg-chart-1 hover:bg-chart-1/90 text-white px-6 py-4 text-base font-medium rounded-full">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Top Up Balance
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="bg-background border border-border rounded-xl">
-                  <DialogHeader>
-                    <DialogTitle className="text-lg font-bold">Top Up Escrow Balance</DialogTitle>
-                    <DialogDescription className="text-sm text-muted-foreground">
-                      Add funds to your escrow account for API usage
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div className="space-y-2 border-b border-border pb-2">
-                      <Label htmlFor="amount" className="text-sm font-medium">Amount (USDC)</Label>
-                      <Input
-                        id="amount"
-                        type="number"
-                        placeholder="Enter amount"
-                        value={topUpAmount}
-                        onChange={(e) => setTopUpAmount(e.target.value)}
-                        className="bg-background border-border/20 rounded-lg text-sm"
-                      />
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={handleTopUp}
-                        className="flex-1 bg-chart-1 hover:bg-chart-1/90 text-white py-4 text-base font-medium rounded-full"
-                      >
-                        Confirm Top Up
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={() => setIsTopUpOpen(false)}
-                        className="flex-1 border-border/20 hover:bg-chart-1/10 py-4 text-base font-medium rounded-full"
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
+              <div className="text-sm text-muted-foreground">Ready for API usage</div>
             </div>
           </CardContent>
         </Card>
       </div>
 
+      {/* Contract Status and Deposit */}
+      <Card className="bg-background border border-border p-6 rounded-xl">
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-2 text-lg font-bold">
+            <Plus className="h-5 w-5 text-chart-1" />
+            Deposit to Escrow
+          </CardTitle>
+          <CardDescription className="text-sm text-muted-foreground">
+            Transfer PYUSD to your escrow account for API usage
+          </CardDescription>
+        </CardHeader>
+        
+        <CardContent className="space-y-6">
+          {/* Contract Status Alert */}
+          {isPaused && (
+            <div className="flex items-center gap-2 p-3 rounded-lg border bg-yellow-50 border-yellow-200 text-yellow-800">
+              <AlertCircle className="h-4 w-4" />
+              <span className="text-sm font-medium">Contract is currently paused. Deposits are temporarily disabled.</span>
+            </div>
+          )}
+
+          {/* Balance Summary */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-muted/30 rounded-lg">
+            <div className="text-center">
+              <div className="text-lg font-bold text-chart-1">{balance}</div>
+              <div className="text-xs text-muted-foreground">Wallet PYUSD</div>
+            </div>
+            <div className="text-center">
+              <div className="text-lg font-bold text-green-600">{userEscrowBalance || "0.000000"}</div>
+              <div className="text-xs text-muted-foreground">Escrow PYUSD</div>
+            </div>
+            <div className="text-center">
+              <div className="text-lg font-bold text-foreground">
+                {(Number(balance || 0) + Number(userEscrowBalance || 0)).toFixed(6)}
+              </div>
+              <div className="text-xs text-muted-foreground">Total PYUSD</div>
+            </div>
+          </div>
+
+          <div className="flex justify-center">
+            <Dialog open={isTopUpOpen} onOpenChange={setIsTopUpOpen}>
+              <DialogTrigger asChild>
+                <Button 
+                  className="bg-chart-1 hover:bg-chart-1/90 text-white px-8 py-4 text-base font-medium rounded-full disabled:bg-gray-400"
+                  disabled={!isConnected || isPaused || isLoading}
+                >
+                  {isLoading ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Plus className="h-4 w-4 mr-2" />
+                  )}
+                  {!isConnected ? "Connect Wallet" : isPaused ? "Contract Paused" : "Deposit PYUSD"}
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="bg-background border border-border rounded-xl max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="text-xl font-bold">Deposit PYUSD to Escrow</DialogTitle>
+                  <DialogDescription className="text-sm text-muted-foreground">
+                    Transfer PYUSD from your wallet to the escrow contract for API usage
+                  </DialogDescription>
+                </DialogHeader>
+                
+                <div className="space-y-6">
+                  {/* Contract pause warning in dialog */}
+                  {isPaused && (
+                    <div className="flex items-center gap-2 p-3 rounded-lg border bg-yellow-50 border-yellow-200 text-yellow-800">
+                      <AlertCircle className="h-4 w-4" />
+                      <span className="text-sm">Contract is paused. Deposits are currently disabled.</span>
+                    </div>
+                  )}
+
+                  {/* Wallet connection warning */}
+                  {!isConnected && (
+                    <div className="flex items-center gap-2 p-3 rounded-lg border bg-red-50 border-red-200 text-red-800">
+                      <AlertCircle className="h-4 w-4" />
+                      <span className="text-sm">Please connect your wallet to continue.</span>
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <Label htmlFor="amount" className="text-sm font-medium">
+                      Deposit Amount
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="amount"
+                        type="number"
+                        placeholder="0.00"
+                        value={topUpAmount}
+                        onChange={(e) => setTopUpAmount(e.target.value)}
+                        className={`pr-16 text-lg ${validationError ? 'border-red-300' : ''}`}
+                        min="0.01"
+                        step="0.01"
+                        disabled={isLoading || isPaused || !isConnected}
+                      />
+                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-sm text-muted-foreground">
+                        PYUSD
+                      </div>
+                    </div>
+                    
+                    {/* Validation error */}
+                    {validationError && (
+                      <div className="text-sm text-red-600 flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        {validationError}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Balance Info */}
+                  <div className="grid grid-cols-2 gap-4 p-3 bg-muted/50 rounded-lg text-sm">
+                    <div>
+                      <div className="text-muted-foreground">Wallet Balance</div>
+                      <div className="font-semibold">{balance} PYUSD</div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground">Current Escrow</div>
+                      <div className="font-semibold text-green-600">{userEscrowBalance} PYUSD</div>
+                    </div>
+                    {topUpAmount && Number(topUpAmount) > 0 && hasSufficientBalance(topUpAmount) && (
+                      <>
+                        <div>
+                          <div className="text-muted-foreground">After Deposit</div>
+                          <div className="font-semibold text-green-600">
+                            {(Number(userEscrowBalance || 0) + Number(topUpAmount)).toFixed(6)} PYUSD
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-muted-foreground">Remaining Wallet</div>
+                          <div className="font-semibold">
+                            {(Number(balance || 0) - Number(topUpAmount)).toFixed(6)} PYUSD
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Transaction Status */}
+                  {transactionStatus.type !== 'idle' && (
+                    <div className={`flex items-center gap-2 p-3 rounded-lg border ${
+                      transactionStatus.type === 'success' 
+                        ? 'bg-green-50 border-green-200 text-green-800'
+                        : transactionStatus.type === 'error'
+                        ? 'bg-red-50 border-red-200 text-red-800'
+                        : 'bg-blue-50 border-blue-200 text-blue-800'
+                    }`}>
+                      {transactionStatus.type === 'success' && <CheckCircle className="h-4 w-4" />}
+                      {transactionStatus.type === 'error' && <AlertCircle className="h-4 w-4" />}
+                      {transactionStatus.type === 'processing' && <Loader2 className="h-4 w-4 animate-spin" />}
+                      <span className="text-sm">{transactionStatus.message}</span>
+                    </div>
+                  )}
+
+                  {/* Transaction link */}
+                  {transactionStatus.type === 'success' && transactionStatus.txHash && (
+                    <div className="text-xs text-green-600">
+                      <a
+                        href={`https://sepolia.etherscan.io/tx/${transactionStatus.txHash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline hover:text-green-800"
+                      >
+                        View transaction on Etherscan ↗
+                      </a>
+                    </div>
+                  )}
+
+                  <div className="flex gap-3">
+                    <Button
+                      onClick={handleTopUp}
+                      disabled={!canSubmit || isLoading}
+                      className="flex-1 bg-chart-1 hover:bg-chart-1/90 text-white py-3 rounded-full disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    >
+                      {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                      {!isConnected 
+                        ? "Connect Wallet"
+                        : isPaused 
+                        ? "Contract Paused"
+                        : isApproving 
+                        ? "Approving..." 
+                        : isDepositing 
+                        ? "Depositing..." 
+                        : "Confirm Deposit"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => setIsTopUpOpen(false)}
+                      disabled={isLoading}
+                      className="flex-1 py-3 rounded-full"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Recent API Calls */}
       <Card className="bg-background border border-border p-6 rounded-xl">
         <CardHeader className="pb-4 border-b border-border">
           <CardTitle className="flex items-center gap-2 text-lg font-bold">
             <Hash className="h-5 w-5 text-chart-1" />
-            Recent Signed Responses
+            Recent API Calls
           </CardTitle>
           <CardDescription className="text-sm text-muted-foreground">
             Latest API calls with cryptographic verification
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-4">
           <div className="space-y-4">
             {recentCalls.map((call) => (
               <div
                 key={call.id}
-                className="flex items-center justify-between p-4 rounded-xl bg-background border border-border hover:border-chart-1/20 transition-colors"
+                className="flex items-center justify-between p-4 rounded-xl bg-muted/30 border border-border/50 hover:border-chart-1/20 transition-colors"
               >
-                <div className="flex-1 space-y-1">
-                  <div className="flex items-center gap-2">
-                    <code className="text-xs font-mono bg-muted px-2 py-1 rounded-md">{call.endpoint}</code>
-                    <Badge variant="secondary" className="bg-chart-1/20 text-chart-1 border-chart-1/20 text-xs">
+                <div className="flex-1 space-y-2">
+                  <div className="flex items-center gap-3">
+                    <code className="text-xs font-mono bg-background px-3 py-1 rounded-md border">
+                      {call.endpoint}
+                    </code>
+                    <Badge variant="secondary" className="bg-chart-1/20 text-chart-1 text-xs">
                       {call.status}
                     </Badge>
                   </div>
-                  <div className="flex items-center gap-4 text-muted-foreground text-xs">
+                  <div className="flex items-center gap-6 text-xs text-muted-foreground">
                     <span>ID: {call.id}</span>
                     <span>Hash: {call.responseHash}</span>
                     <span>{call.timestamp}</span>
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="font-semibold text-base">${call.cost.toFixed(3)}</div>
+                  <div className="font-bold text-lg">${call.cost.toFixed(3)}</div>
                   <div className="text-xs text-muted-foreground">Cost</div>
                 </div>
               </div>
@@ -183,5 +515,5 @@ export function ClientDashboard() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

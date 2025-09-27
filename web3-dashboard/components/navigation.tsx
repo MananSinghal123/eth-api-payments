@@ -5,6 +5,7 @@ import { Wallet } from "lucide-react";
 import { useAccount, useConnect, useDisconnect, useChainId } from 'wagmi';
 import { sepolia } from 'wagmi/chains';
 import ConnectButton from "./connectWallet";
+import ClientOnly from "./client-only";
 
 interface NavigationProps {
   activeTab: "landing" | "client" | "provider";
@@ -121,7 +122,10 @@ export function Navigation({ activeTab, onTabChange }: NavigationProps) {
           </div>
 
           {/* Right side: Custom Wagmi Wallet Button */}
-          <ConnectButton/>
+          <ClientOnly>
+            <ConnectButton/>
+          </ClientOnly>
+          
 
         </div>
       </div>
