@@ -1,0 +1,80 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+
+package contract.v1;
+message Events {
+    repeated Escrow_BatchPayment escrow_batch_payments = 1;
+    repeated Escrow_OwnershipTransferred escrow_ownership_transferreds = 2;
+    repeated Escrow_Paused escrow_pauseds = 3;
+    repeated Escrow_ProviderWithdraw escrow_provider_withdraws = 4;
+    repeated Escrow_Unpaused escrow_unpauseds = 5;
+    repeated Escrow_UserDeposit escrow_user_deposits = 6;
+    repeated Escrow_UserWithdraw escrow_user_withdraws = 7;
+    repeated Escrow_ZkVerifierUpdated escrow_zk_verifier_updateds = 8;
+}
+message Escrow_BatchPayment {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes user = 5;
+    bytes provider = 6;
+    string amount = 7;
+    string num_calls = 8;
+}
+message Escrow_OwnershipTransferred {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes previous_owner = 5;
+    bytes new_owner = 6;
+}
+message Escrow_Paused {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes account = 5;
+}
+message Escrow_ProviderWithdraw {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes provider = 5;
+    string amount = 6;
+}
+message Escrow_Unpaused {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes account = 5;
+}
+message Escrow_UserDeposit {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes user = 5;
+    string amount = 6;
+}
+message Escrow_UserWithdraw {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes user = 5;
+    string amount = 6;
+}
+message Escrow_ZkVerifierUpdated {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes old_verifier = 5;
+    bytes new_verifier = 6;
+}
+  

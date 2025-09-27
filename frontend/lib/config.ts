@@ -1,13 +1,11 @@
 // config.ts
 
 import { http, createConfig } from 'wagmi';
-import { sepolia, polygonAmoy } from 'wagmi/chains';
+import { sepolia } from 'wagmi/chains';
 import { injected, metaMask } from 'wagmi/connectors';
 
-// Import ABI files for both contracts
-import Escrow from '../../deployments/amoy/Escrow.json';
-import WrappedPYUSD from '../../deployments/amoy/WrappedPYUSD.json';
-import WrappedPYUSDAdapter from "../../deployments/sepolia/WrappedPYUSDAdapter.json"
+// Import ABI file for Escrow contract
+import Escrow from '../contracts/Escrow.json';
 
 // Environment-based configuration for flexibility
 const getContractAddress = (envKey: string, fallback: string): `0x${string}` => {
@@ -19,14 +17,13 @@ const getContractAddress = (envKey: string, fallback: string): `0x${string}` => 
 };
 
 
-// Dynamic contract configuration based on environment
+// Contract configuration for Sepolia
 export const contractConfig = {
-  // Sepolia contracts
   sepolia: {
     pyusdToken: {
       address: getContractAddress(
         'NEXT_PUBLIC_PYUSD_SEPOLIA', 
-        '0xCaC524BcA292aaade2DF8A05cC58F0a65B1B3bB9' // Updated PYUSD contract address
+        '0xCaC524BcA292aaade2DF8A05cC58F0a65B1B3bB9' // PYUSD contract address on Sepolia
       ),
       abi: [
         {
@@ -111,49 +108,27 @@ export const contractConfig = {
       ],
       chainId: sepolia.id,
     },
-    wrappedPyusdAdapter: {
-      address: getContractAddress(
-        'NEXT_PUBLIC_WPYUSD_ADAPTER_SEPOLIA',
-        '0x6B0F37d709a9c344233fb4082102400dBeDA5d1F'
-      ),
-      abi: WrappedPYUSDAdapter.abi,
-      chainId: sepolia.id,
-    },
-  },
-  // Polygon Amoy contracts
-  amoy: {
     escrow: {
       address: getContractAddress(
-        'NEXT_PUBLIC_ESCROW_AMOY',
-        '0xAC6a80da31d9D32f453332A9d6184c8b2376430E'
+        'NEXT_PUBLIC_ESCROW_SEPOLIA',
+        '0xe73922a448d76756babc9126f4401101cbfb4fbc' // Escrow contract address on Sepolia
       ),
       abi: Escrow.abi,
-      chainId: polygonAmoy.id,
-    },
-    wrappedPyusd: {
-      address: getContractAddress(
-        'NEXT_PUBLIC_WPYUSD_AMOY',
-        '0xDCD5c55a144E325274508eC3bEf0d8e29E2F1cfE'
-      ),
-      abi: WrappedPYUSD.abi,
-      chainId: polygonAmoy.id,
+      chainId: sepolia.id,
     },
   },
 };
 
-// Legacy exports for backward compatibility
-export const escrowContract = contractConfig.amoy.escrow;
-export const wrappedPyusdAdapterContract = contractConfig.sepolia.wrappedPyusdAdapter;
+// Contract exports for easy access
+export const escrowContract = contractConfig.sepolia.escrow;
 export const pyusdTokenContract = contractConfig.sepolia.pyusdToken;
-export const wrappedPyusdAmoyContract = contractConfig.amoy.wrappedPyusd;
 
 
 export const config = createConfig({
-  chains: [sepolia, polygonAmoy],
+  chains: [sepolia],
   connectors: [injected(), metaMask()],
   transports: {
     [sepolia.id]: http(),
-    [polygonAmoy.id]: http(),
   },
   ssr: true,
   syncConnectedChain: true,
