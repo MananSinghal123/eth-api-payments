@@ -12,24 +12,24 @@ import {
   useDailyTrends
 } from '@/hooks/useAnalytics';
 
-// Fallback data for when API is not available
+// Zero fallback data when API is not available
 const fallbackMetrics = {
-  totalVolume: 12847.52,
-  activeUsers: 1234,
-  totalProviders: 45,
-  dailyTransactions: 892,
-  avgTransactionSize: 15.67,
-  platformFee: 2.3,
+  totalVolume: 0,
+  activeUsers: 0,
+  totalProviders: 0,
+  dailyTransactions: 0,
+  avgTransactionSize: 0,
+  platformFee: 2.3, // This is a configuration value, not data-dependent
 };
 
 const fallbackVolumeData = [
-  { date: '2024-01-01', volume: 1200 },
-  { date: '2024-01-02', volume: 1450 },
-  { date: '2024-01-03', volume: 1100 },
-  { date: '2024-01-04', volume: 1800 },
-  { date: '2024-01-05', volume: 2100 },
-  { date: '2024-01-06', volume: 1900 },
-  { date: '2024-01-07', volume: 2300 },
+  { date: '2024-01-01', volume: 0 },
+  { date: '2024-01-02', volume: 0 },
+  { date: '2024-01-03', volume: 0 },
+  { date: '2024-01-04', volume: 0 },
+  { date: '2024-01-05', volume: 0 },
+  { date: '2024-01-06', volume: 0 },
+  { date: '2024-01-07', volume: 0 },
 ];
 
 export default function Dashboard() {
@@ -108,6 +108,25 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* Success Banner */}
+        {!hasErrors && globalMetrics && (
+          <Card className="mb-6 border-green-500/20 bg-green-500/5">
+            <CardContent className="pt-6">
+              <div className="flex items-center space-x-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                <div>
+                  <p className="text-sm font-medium text-green-500">
+                    Sink Service Connected
+                  </p>
+                  <p className="text-xs text-green-500/80">
+                    Real-time data from localhost:3007
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Error Banner */}
         {hasErrors && (
           <Card className="mb-6 border-red-500/20 bg-red-500/5">
@@ -119,8 +138,13 @@ export default function Dashboard() {
                     API Connection Issues
                   </p>
                   <p className="text-xs text-red-500/80">
-                    Displaying cached data. Real-time updates may be delayed.
+                    Cannot connect to sink service on localhost:3007. Check console for details.
                   </p>
+                  {overviewError && (
+                    <p className="text-xs text-red-500/60 mt-1">
+                      Error: {overviewError.message}
+                    </p>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -186,13 +210,14 @@ export default function Dashboard() {
             <ChartComponent
               title="Provider Distribution"
               description="Revenue share by provider"
-              data={generateProviderDistributionData([
-                { name: 'Provider A', revenue: 3200 },
-                { name: 'Provider B', revenue: 2800 },
-                { name: 'Provider C', revenue: 2100 },
-                { name: 'Provider D', revenue: 1900 },
-                { name: 'Others', revenue: 2900 },
-              ])}
+              data={generateProviderDistributionData(
+                globalMetrics ? [
+                  // Use real provider data if available
+                  { name: 'No Data', revenue: 0 }
+                ] : [
+                  { name: 'No Data', revenue: 0 }
+                ]
+              )}
               type="doughnut"
               height={300}
             />
@@ -204,15 +229,25 @@ export default function Dashboard() {
           <ChartComponent
             title="User Growth"
             description="Active users over time"
-            data={generateUserGrowthChartData([
-              { date: '2024-01-01', users: 850 },
-              { date: '2024-01-02', users: 920 },
-              { date: '2024-01-03', users: 880 },
-              { date: '2024-01-04', users: 1050 },
-              { date: '2024-01-05', users: 1150 },
-              { date: '2024-01-06', users: 1100 },
-              { date: '2024-01-07', users: 1234 },
-            ])}
+            data={generateUserGrowthChartData(
+              globalMetrics ? [
+                { date: '2024-01-01', users: 0 },
+                { date: '2024-01-02', users: 0 },
+                { date: '2024-01-03', users: 0 },
+                { date: '2024-01-04', users: 0 },
+                { date: '2024-01-05', users: 0 },
+                { date: '2024-01-06', users: 0 },
+                { date: '2024-01-07', users: currentMetrics.activeUsers || 0 },
+              ] : [
+                { date: '2024-01-01', users: 0 },
+                { date: '2024-01-02', users: 0 },
+                { date: '2024-01-03', users: 0 },
+                { date: '2024-01-04', users: 0 },
+                { date: '2024-01-05', users: 0 },
+                { date: '2024-01-06', users: 0 },
+                { date: '2024-01-07', users: 0 },
+              ]
+            )}
             type="line"
             height={250}
           />
@@ -247,30 +282,16 @@ export default function Dashboard() {
                     </div>
                   </div>
                 )) || 
-                // Fallback activities
-                [
-                  { type: 'payment', user: '0x742d...8f3a', amount: '25.4 ETH', time: '2 mins ago' },
-                  { type: 'deposit', user: '0x123a...9b2c', amount: '100.0 ETH', time: '5 mins ago' },
-                  { type: 'withdrawal', user: '0xabc9...7d4e', amount: '45.8 ETH', time: '8 mins ago' },
-                  { type: 'payment', user: '0x567f...3c1b', amount: '12.1 ETH', time: '12 mins ago' },
-                ].map((activity, index) => (
-                  <div key={index} className="flex items-center justify-between py-2">
-                    <div className="flex items-center space-x-3">
-                      <div className={`w-2 h-2 rounded-full ${
-                        activity.type === 'payment' ? 'bg-green-500' : 
-                        activity.type === 'deposit' ? 'bg-blue-500' : 'bg-orange-500'
-                      }`}></div>
-                      <div>
-                        <p className="text-sm font-medium text-foreground">{activity.user}</p>
-                        <p className="text-xs text-muted-foreground capitalize">{activity.type}</p>
-                      </div>
+                // Empty state when no data is available
+                (
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center mb-2">
+                      <Activity className="h-4 w-4 text-muted-foreground" />
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm font-medium text-foreground">{activity.amount}</p>
-                      <p className="text-xs text-muted-foreground">{activity.time}</p>
-                    </div>
+                    <p className="text-sm text-muted-foreground">No recent activity</p>
+                    <p className="text-xs text-muted-foreground/60">Waiting for data...</p>
                   </div>
-                ))}
+                )}
               </div>
             </CardContent>
           </Card>

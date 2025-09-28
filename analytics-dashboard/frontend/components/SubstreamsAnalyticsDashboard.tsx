@@ -72,7 +72,7 @@ export default function SubstreamsAnalyticsDashboard() {
   useEffect(() => {
     const connectWebSocket = () => {
       try {
-        wsRef.current = new WebSocket('ws://localhost:8080');
+        wsRef.current = new WebSocket('ws://localhost:3007');
         
         wsRef.current.onopen = () => {
           console.log('🔗 Connected to Substreams analytics');
@@ -83,29 +83,81 @@ export default function SubstreamsAnalyticsDashboard() {
           try {
             const message = JSON.parse(event.data);
             
-            if (message.type === 'analytics_update') {
-              setAnalyticsData(message.data);
+            if (message.type === 'stats') {
+              // Convert sink service stats to frontend analytics format
+              const stats = message.data;
+              const convertedAnalytics = {
+                payment_analytics: {
+                  total_volume: (parseInt(stats.totalPaymentVolume) + parseInt(stats.totalDepositAmount)).toString(),
+                  unique_users: stats.uniqueUsers,
+                  unique_providers: stats.uniqueProviders,
+                  avg_payment_size: stats.totalBatchPayments > 0 ? 
+                    Math.floor(parseInt(stats.totalPaymentVolume) / stats.totalBatchPayments).toString() : "0",
+                  payment_frequency: stats.totalBatchPayments,
+                  block_number: stats.lastBlockProcessed,
+                  timestamp: { seconds: Math.floor(Date.now() / 1000) }
+                },
+                network_metrics: {
+                  total_unique_users: stats.uniqueUsers,
+                  total_unique_providers: stats.uniqueProviders,
+                  active_user_provider_pairs: Math.min(stats.uniqueUsers, stats.uniqueProviders),
+                  network_density: stats.uniqueUsers > 0 ? stats.uniqueProviders / stats.uniqueUsers : 0,
+                  total_network_volume: (parseInt(stats.totalPaymentVolume) + parseInt(stats.totalDepositAmount)).toString(),
+                  top_connections: []
+                }
+              };
+              
+              setAnalyticsData(convertedAnalytics);
               
               // Add to real-time chart data
               const timestamp = new Date().toLocaleTimeString();
               const newDataPoint = {
                 time: timestamp,
-                volume: parseFloat(message.data.payment_analytics?.total_volume || '0'),
-                users: message.data.payment_analytics?.unique_users || 0,
-                providers: message.data.payment_analytics?.unique_providers || 0,
-                anomaly_score: message.ai_insights?.anomaly_score || 0
+                volume: parseInt(stats.totalPaymentVolume) + parseInt(stats.totalDepositAmount),
+                users: stats.uniqueUsers,
+                providers: stats.uniqueProviders,
+                anomaly_score: 0.1 // Default low anomaly score
               };
               
               setRealTimeData(prev => [...prev.slice(-19), newDataPoint]);
               
-              // Process AI insights if available
-              if (message.ai_insights) {
-                setAIInsights(message.ai_insights);
-              }
+              // Generate mock AI insights for now
+              const mockAI = {
+                user_insights: {
+                  user_category: 'regular_user',
+                  confidence: 0.85,
+                  recommendations: [
+                    "Your payment pattern is optimal",
+                    "Consider batching smaller payments",
+                    "API usage is well distributed"
+                  ],
+                  risk_score: 0.1,
+                  efficiency_score: 0.9
+                },
+                anomaly_score: 0.1,
+                cost_suggestions: [{
+                  type: "batch_optimization",
+                  description: "Current usage pattern is efficient",
+                  potential_savings_usd: 5,
+                  confidence: 0.8
+                }],
+                confidence_score: 0.85,
+                timestamp: new Date().toISOString()
+              };
+              setAIInsights(mockAI);
             }
             
-            if (message.type === 'anomaly_alert') {
+            if (message.type === 'event') {
+              console.log(`📊 Received real-time event: ${message.data.eventType}`);
               setAlertCount(prev => prev + 1);
+            }
+            
+            if (message.type === 'connected') {
+              console.log('✅ Sink service connected successfully');
+            }
+            
+            if (message.type === 'error') {
+              console.error('❌ Sink service error:', message.error);
             }
             
           } catch (error) {

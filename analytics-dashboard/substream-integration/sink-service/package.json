@@ -1,0 +1,32 @@
+{
+  "name": "escrow-substream-sink",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Real-time sink service for Escrow contract substreams",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "tsx src/server.ts",
+    "stream": "tsx src/stream-consumer.ts",
+    "test": "tsx src/test-connection.ts"
+  },
+  "dependencies": {
+    "@connectrpc/connect": "^1.3.0",
+    "@connectrpc/connect-node": "^1.3.0",
+    "@substreams/core": "^0.1.19",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "viem": "^2.37.8",
+    "ws": "^8.14.2"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.15",
+    "@types/express": "^4.17.20",
+    "@types/node": "^20.8.0",
+    "@types/ws": "^8.5.6",
+    "tsx": "^3.14.0",
+    "typescript": "^5.2.2"
+  }
+}

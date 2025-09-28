@@ -1,5 +1,5 @@
 // API client configuration and base methods
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3007/api';
 
 export interface ApiResponse<T> {
   data: T;
@@ -20,6 +20,8 @@ export class ApiClient {
   ): Promise<ApiResponse<T>> {
     const url = `${this.baseUrl}${endpoint}`;
     
+    console.log(`🔗 API Request: ${url}`);
+    
     try {
       const response = await fetch(url, {
         headers: {
@@ -29,98 +31,191 @@ export class ApiClient {
         ...options,
       });
 
+      console.log(`📡 API Response [${response.status}]: ${url}`);
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
+      console.log(`✅ API Success: ${url}`, data);
       return { data };
     } catch (error) {
-      console.error(`API request failed: ${endpoint}`, error);
+      console.error(`❌ API request failed: ${endpoint}`, error);
       throw new Error(`API request failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
-  // Analytics endpoints
+  // Analytics endpoints - mapped to sink service endpoints
   async getOverviewMetrics(): Promise<ApiResponse<any>> {
-    return this.request('/analytics/overview');
+    try {
+      // Use the stats endpoint which provides comprehensive data
+      const stats = await this.request('/stats');
+      const events = await this.request('/events/recent?limit=20');
+      
+      return {
+        data: {
+          globalMetrics: stats.data,
+          recentPayments: events.data || []
+        }
+      };
+    } catch (error) {
+      // If we can't get both, try to get at least stats
+      try {
+        const stats = await this.request('/stats');
+        return {
+          data: {
+            globalMetrics: stats.data,
+            recentPayments: []
+          }
+        };
+      } catch (statsError) {
+        throw error; // Re-throw original error
+      }
+    }
   }
 
   async getGlobalMetrics(): Promise<ApiResponse<any>> {
-    return this.request('/analytics/metrics');
+    return this.request('/stats');
   }
 
   async getDailyTrends(days: number = 30): Promise<ApiResponse<any>> {
-    return this.request(`/analytics/trends?days=${days}`);
+    // For now, return empty trends as the sink service doesn't have historical data yet
+    // This would need to be implemented in the sink service to store historical data
+    return {
+      data: {
+        trends: []
+      }
+    };
   }
 
   async getPaymentFlows(user?: string, provider?: string, limit?: number): Promise<ApiResponse<any>> {
-    const params = new URLSearchParams();
-    if (user) params.append('user', user);
-    if (provider) params.append('provider', provider);
-    if (limit) params.append('limit', limit.toString());
-    
-    return this.request(`/analytics/payment-flows${params.toString() ? '?' + params.toString() : ''}`);
+    // Use recent events endpoint with filtering
+    const limitParam = limit || 50;
+    return this.request(`/events/recent?limit=${limitParam}`);
   }
 
   async getComparisons(period: string = '7d'): Promise<ApiResponse<any>> {
-    return this.request(`/analytics/comparisons?period=${period}`);
+    // Return empty comparisons for now - would need historical data implementation
+    return {
+      data: {
+        comparisons: {
+          currentPeriod: {},
+          previousPeriod: {},
+          change: 0
+        }
+      }
+    };
   }
 
   async getLeaderboards(type: string = 'all', limit: number = 10): Promise<ApiResponse<any>> {
-    return this.request(`/analytics/leaderboards?type=${type}&limit=${limit}`);
+    // Return empty leaderboards for now - would need aggregated data implementation
+    return {
+      data: {
+        leaderboards: []
+      }
+    };
   }
 
   async getAnalyticsHealth(): Promise<ApiResponse<any>> {
-    return this.request('/analytics/health');
+    // Map to the health endpoint
+    return this.request('/../health'); // Go up one level to get /health instead of /api/health
   }
 
-  // User endpoints
+  // User endpoints - return empty data for now as sink service doesn't have these yet
   async getUsers(page: number = 1, limit: number = 50): Promise<ApiResponse<any>> {
-    return this.request(`/users?page=${page}&limit=${limit}`);
+    return {
+      data: {
+        users: [],
+        total: 0,
+        page,
+        limit
+      }
+    };
   }
 
   async getUserMetrics(): Promise<ApiResponse<any>> {
-    return this.request('/users/metrics');
+    return {
+      data: {
+        totalUsers: 0,
+        activeUsers: 0,
+        newUsers: 0
+      }
+    };
   }
 
   async getUserSegments(): Promise<ApiResponse<any>> {
-    return this.request('/users/segments');
+    return {
+      data: {
+        segments: []
+      }
+    };
   }
 
   async getUserBehaviorAnalysis(): Promise<ApiResponse<any>> {
-    return this.request('/users/behavior');
+    return {
+      data: {
+        behavior: []
+      }
+    };
   }
 
-  // Provider endpoints
+  // Provider endpoints - return empty data for now
   async getProviders(page: number = 1, limit: number = 50): Promise<ApiResponse<any>> {
-    return this.request(`/providers?page=${page}&limit=${limit}`);
+    return {
+      data: {
+        providers: [],
+        total: 0,
+        page,
+        limit
+      }
+    };
   }
 
   async getProviderMetrics(): Promise<ApiResponse<any>> {
-    return this.request('/providers/metrics');
+    return {
+      data: {
+        totalProviders: 0,
+        activeProviders: 0
+      }
+    };
   }
 
   async getProviderPerformance(): Promise<ApiResponse<any>> {
-    return this.request('/providers/performance');
+    return {
+      data: {
+        performance: []
+      }
+    };
   }
 
-  // Market trends endpoints
+  // Market trends endpoints - return empty data for now
   async getMarketTrends(): Promise<ApiResponse<any>> {
-    return this.request('/market/trends');
+    return {
+      data: {
+        trends: []
+      }
+    };
   }
 
   async getSystemHealth(): Promise<ApiResponse<any>> {
-    return this.request('/system/health');
+    // Map to the health endpoint
+    const baseUrl = this.baseUrl.replace('/api', ''); // Remove /api suffix
+    const response = await fetch(`${baseUrl}/health`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data = await response.json();
+    return { data };
   }
 
   // Real-time data endpoints
   async getRecentActivity(limit: number = 10): Promise<ApiResponse<any>> {
-    return this.request(`/activity/recent?limit=${limit}`);
+    return this.request(`/events/recent?limit=${limit}`);
   }
 
   async getTopTransactions(timeframe: string = '24h'): Promise<ApiResponse<any>> {
-    return this.request(`/transactions/top?timeframe=${timeframe}`);
+    return this.request(`/events/recent?limit=10`); // Use recent events as top transactions
   }
 }
 

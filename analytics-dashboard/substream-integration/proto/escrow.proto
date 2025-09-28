@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package eth.escrow.v1;
+
+message Events {
+  repeated EscrowEvent events = 1;
+}
+
+message EscrowEvent {
+  string event_type = 1;          // "UserDeposit", "UserWithdraw", "BatchPayment", "ProviderWithdraw", "ZkVerifierUpdated"
+  string user_address = 2;        // User address (for UserDeposit, UserWithdraw, BatchPayment)
+  string provider_address = 3;    // Provider address (for BatchPayment, ProviderWithdraw)
+  string amount_cents = 4;        // Amount in cents as string
+  uint64 num_calls = 5;          // Number of API calls (for BatchPayment)
+  string old_verifier = 6;        // Old verifier address (for ZkVerifierUpdated)
+  string new_verifier = 7;        // New verifier address (for ZkVerifierUpdated)
+  string transaction_hash = 8;    // Transaction hash
+  uint64 block_number = 9;        // Block number
+  uint64 timestamp = 10;          // Block timestamp
+  string contract_address = 11;   // Escrow contract address
+  uint64 gas_used = 12;          // Gas used for the transaction
+  string gas_price = 13;         // Gas price in wei
+}
+
+// Aggregated statistics message for efficient querying
+message Statistics {
+  uint64 total_deposits = 1;      // Total number of deposits
+  string total_deposit_amount = 2; // Total deposit amount in cents
+  uint64 total_withdrawals = 3;    // Total number of withdrawals  
+  string total_withdrawal_amount = 4; // Total withdrawal amount in cents
+  uint64 total_batch_payments = 5;  // Total number of batch payments
+  string total_payment_volume = 6;  // Total payment volume in cents
+  uint64 unique_users = 7;         // Number of unique users
+  uint64 unique_providers = 8;     // Number of unique providers
+  uint64 total_api_calls = 9;      // Total API calls processed
+}
