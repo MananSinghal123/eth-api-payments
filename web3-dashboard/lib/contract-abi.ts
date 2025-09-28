@@ -146,7 +146,7 @@ export function useDeposit() {
   const userEscrowBalance = useMemo(() => {
     if (!userBalanceFromContract) return "0.000000";
     try {
-      const formatted = formatUnits(userBalanceFromContract, 1);
+      const formatted = formatUnits(userBalanceFromContract,2);
       console.log("📊 User escrow balance from getUserBalance():", formatted, "PYUSD");
       return formatted;
     } catch (error) {

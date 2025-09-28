@@ -14,7 +14,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Wallet, Plus, Hash, AlertCircle, CheckCircle, Loader2, RefreshCw, TrendingUp } from "lucide-react";
+import { Wallet, Plus, Hash, AlertCircle, CheckCircle, Loader2, RefreshCw, TrendingUp, Activity, Eye } from "lucide-react";
 import { useDeposit } from "../lib/contract-abi";
 
 export function ClientDashboard() {
@@ -26,10 +26,14 @@ export function ClientDashboard() {
     txHash?: string;
   }>({ type: 'idle', message: '' });
 
+  // Simple state for transaction details
+  const [transactions, setTransactions] = useState([]);
+  const [loadingTransactions, setLoadingTransactions] = useState(false);
+
   const {
     depositPYUSD,
     balance,
-    userEscrowBalance, // This will come from the contract's userBalance function
+    userEscrowBalance,
     hasSufficientBalance,
     isLoading,
     isApproving,
@@ -38,7 +42,7 @@ export function ClientDashboard() {
     isConnected,
     refetchBalance,
     refetchAllowance,
-    refetchUserBalance, // Function to refetch user's escrow balance
+    refetchUserBalance,
   } = useDeposit();
 
   // Reset transaction status when dialog closes
@@ -64,12 +68,34 @@ export function ClientDashboard() {
     }
   }, [isApproving, isDepositing]);
 
+  // Simple function to fetch transactions
+  const fetchTransactions = async () => {
+    try {
+      setLoadingTransactions(true);
+      const response = await fetch('http://localhost:3001/api/events-full?limit=5');
+      if (response.ok) {
+        const data = await response.json();
+        setTransactions(data.events || []);
+      }
+    } catch (error) {
+      console.error('Error fetching transactions:', error);
+      setTransactions([]);
+    } finally {
+      setLoadingTransactions(false);
+    }
+  };
+
+  // Load transactions on mount
+  useEffect(() => {
+    fetchTransactions();
+  }, []);
+
   const handleRefreshBalance = async () => {
     try {
       await Promise.all([
         refetchBalance(),
         refetchAllowance(),
-        refetchUserBalance() // Refresh user's escrow balance
+        refetchUserBalance()
       ]);
     } catch (error) {
       console.error('Error refreshing balance:', error);
@@ -79,7 +105,6 @@ export function ClientDashboard() {
   const handleTopUp = async () => {
     console.log("🎯 Deposit button clicked");
     
-    // Basic validation
     if (!isConnected) {
       setTransactionStatus({
         type: 'error',
@@ -131,10 +156,13 @@ export function ClientDashboard() {
           txHash: result?.txHash
         });
         
-        // Refresh balances after successful deposit
         await handleRefreshBalance();
         
-        // Auto-close after 3 seconds
+        // Refresh transactions after deposit
+        setTimeout(() => {
+          fetchTransactions();
+        }, 2000);
+        
         setTimeout(() => {
           setIsTopUpOpen(false);
         }, 3000);
@@ -469,6 +497,70 @@ export function ClientDashboard() {
               </DialogContent>
             </Dialog>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Simple Transaction Details */}
+      <Card className="bg-background border border-border p-6 rounded-xl">
+        <CardHeader className="pb-4 border-b border-border">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-lg font-bold">
+                <Activity className="h-5 w-5 text-chart-1" />
+                Transaction Details
+              </CardTitle>
+              <CardDescription className="text-sm text-muted-foreground">
+                Recent contract events and transactions
+              </CardDescription>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={fetchTransactions}
+              disabled={loadingTransactions}
+              className="h-8 w-8 p-0"
+            >
+              <RefreshCw className={`h-4 w-4 ${loadingTransactions ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-4">
+          {loadingTransactions ? (
+            <div className="text-center py-4">
+              <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground">Loading transactions...</p>
+            </div>
+          ) : transactions.length > 0 ? (
+            <div className="space-y-3">
+              {transactions.map((tx) => (
+                <div
+                  key={tx.id}
+                  className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border"
+                >
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <code className="text-xs bg-background px-2 py-1 rounded">
+                        {tx.transactionHash?.slice(0, 10)}...{tx.transactionHash?.slice(-8)}
+                      </code>
+                      <Badge variant="outline" className="text-xs">
+                        {tx.eventType || 'Event'}
+                      </Badge>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Block {tx.blockNumber} • {new Date(tx.timestamp).toLocaleString()}
+                    </div>
+                  </div>
+                  <Eye className="h-4 w-4 text-muted-foreground" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <Activity className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <p>No transactions found</p>
+              <p className="text-sm">Contract events will appear here</p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
